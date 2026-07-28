@@ -1,0 +1,15 @@
+export const ENV = {
+  databaseUrl: process.env.DATABASE_URL || "",
+  jwtSecret: process.env.JWT_SECRET || "",
+  ownerOpenId: process.env.OWNER_OPEN_ID || "",
+  ownerName: process.env.OWNER_NAME || "",
+  port: Number(process.env.PORT) || 3000,
+  nodeEnv: process.env.NODE_ENV || "development",
+  appId: process.env.VITE_APP_ID || "",
+  oauthPortalUrl: process.env.OAUTH_SERVER_URL || "",
+  oauthCallbackUrl: process.env.OAUTH_CALLBACK_URL || "",
+  builtInForgeApiUrl: process.env.BUILT_IN_FORGE_API_URL || "",
+  builtInForgeApiKey: process.env.BUILT_IN_FORGE_API_KEY || "",
+  frontendForgeApiUrl: process.env.VITE_FRONTEND_FORGE_API_URL || "",
+  frontendForgeApiKey: process.env.VITE_FRONTEND_FORGE_API_KEY || "",
+};
