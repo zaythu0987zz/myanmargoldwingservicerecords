@@ -13,6 +13,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { httpBatchLink } from "@trpc/client";
 import { trpc } from "./lib/trpc";
 import superjson from "superjson";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -55,6 +56,7 @@ function App() {
             <TooltipProvider>
               <Toaster />
               <Router />
+              <SpeedInsights />
             </TooltipProvider>
           </QueryClientProvider>
         </trpc.Provider>
