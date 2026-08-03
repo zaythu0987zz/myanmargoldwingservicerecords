@@ -1,5 +1,5 @@
 import { trpc } from "@/lib/trpc";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import { Link, useParams } from "wouter";
 import { Loader2, ArrowLeft, QrCode, Coffee, MapPin, User, Calendar, DollarSign, ClipboardList } from "lucide-react";
@@ -10,7 +10,7 @@ import { toast } from "sonner";
 
 export default function RecordDetail() {
   const { id } = useParams<{ id: string }>();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
   const recordId = parseInt(id || "0");
 
   const { data: record, isLoading } = trpc.serviceRecords.getById.useQuery(
@@ -54,7 +54,7 @@ export default function RecordDetail() {
     );
   }
 
-  const canDelete = isAuthenticated && user?.role === "admin";
+  const canDelete = isAuthenticated;
 
   return (
     <div className="min-h-screen bg-gray-50">

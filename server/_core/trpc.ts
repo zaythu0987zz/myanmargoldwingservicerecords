@@ -10,6 +10,7 @@ export const router = t.router;
 export const publicProcedure = t.procedure;
 export const middleware = t.middleware;
 
+// All authenticated users are admins (PIN-based auth)
 const isAuthed = middleware(({ ctx, next }) => {
   if (!ctx.user) {
     throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
@@ -18,15 +19,4 @@ const isAuthed = middleware(({ ctx, next }) => {
 });
 
 export const protectedProcedure = t.procedure.use(isAuthed);
-
-const isAdmin = middleware(({ ctx, next }) => {
-  if (!ctx.user) {
-    throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
-  }
-  if (ctx.user.role !== "admin") {
-    throw new TRPCError({ code: "FORBIDDEN", message: "Admin access required" });
-  }
-  return next({ ctx: { ...ctx, user: ctx.user } });
-});
-
-export const adminProcedure = t.procedure.use(isAdmin);
+export const adminProcedure = t.procedure.use(isAuthed);

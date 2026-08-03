@@ -1,6 +1,5 @@
 import { trpc } from "@/lib/trpc";
-import { useAuth } from "@/hooks/useAuth";
-import { getLoginUrl } from "@/const";
+import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import { useState, useEffect } from "react";
 import { Link, useParams, useLocation } from "wouter";
@@ -25,7 +24,7 @@ type Part = {
 
 export default function EditRecord() {
   const { id } = useParams<{ id: string }>();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
   const recordId = parseInt(id || "0");
 
@@ -126,7 +125,7 @@ export default function EditRecord() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAuthenticated) {
-      window.location.href = getLoginUrl();
+      navigate("/login");
       return;
     }
 
@@ -153,15 +152,15 @@ export default function EditRecord() {
     );
   }
 
-  if (!record || !isAuthenticated || user?.role !== "admin") {
+  if (!record || !isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />
         <div className="container py-20 text-center">
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
-          <p className="text-gray-500 mb-6">You don't have permission to edit this record.</p>
-          <Link href="/">
-            <Button variant="outline">Go Back</Button>
+          <p className="text-gray-500 mb-6">You need to be logged in to edit this record.</p>
+          <Link href="/login">
+            <Button className="bg-goldwing-gold hover:bg-goldwing-gold-dark text-white">Login</Button>
           </Link>
         </div>
       </div>
@@ -177,9 +176,7 @@ export default function EditRecord() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle>Machine Information</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle>Machine Information</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>

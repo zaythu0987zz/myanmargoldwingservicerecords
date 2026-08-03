@@ -1,9 +1,9 @@
 import express from "express";
 import path from "node:path";
+import cookieParser from "cookie-parser";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
-import { registerOAuthRoutes } from "./oauth";
 import { ENV } from "./env";
 
 const app = express();
@@ -11,9 +11,7 @@ const app = express();
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Register OAuth routes
-registerOAuthRoutes(app);
+app.use(cookieParser());
 
 // Serve static files from the Vite build output
 const publicPath = path.resolve(import.meta.dirname, "..", "dist", "public");
@@ -40,7 +38,7 @@ app.use(
 // Start server
 const port = ENV.port;
 app.listen(port, () => {
-  console.log(`🚀 Server running on http://localhost:${port}`);
+  console.log(`Server running on http://localhost:${port}`);
   console.log(`   Environment: ${ENV.nodeEnv}`);
   if (ENV.databaseUrl) {
     console.log("   Database: Connected");

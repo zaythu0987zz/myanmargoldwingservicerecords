@@ -4,14 +4,8 @@ import { ENV } from "./env";
 
 export type User = {
   id: number;
-  openId: string;
-  name: string | null;
-  email: string | null;
-  loginMethod: string | null;
-  role: "user" | "admin";
-  createdAt: Date;
-  updatedAt: Date;
-  lastSignedIn: Date;
+  name: string;
+  role: "admin";
 };
 
 export type TrpcContext = {
@@ -30,21 +24,14 @@ export async function createContext(opts: { req: any; res: any }): Promise<TrpcC
     const token = cookies[COOKIE_NAME];
 
     if (token) {
-      // Try to decode JWT token using jose
       const { jwtVerify } = await import("jose");
       const secret = new TextEncoder().encode(ENV.jwtSecret);
       try {
         const { payload } = await jwtVerify(token, secret);
         user = {
-          id: Number(payload.sub) || 0,
-          openId: String(payload.openId || ""),
-          name: (payload.name as string) || null,
-          email: (payload.email as string) || null,
-          loginMethod: (payload.loginMethod as string) || null,
-          role: (payload.role as "user" | "admin") || "user",
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          lastSignedIn: new Date(),
+          id: Number(payload.sub) || 1,
+          name: (payload.name as string) || "Admin",
+          role: (payload.role as "admin") || "admin",
         };
       } catch {
         // Token invalid, continue without user

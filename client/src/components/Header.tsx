@@ -1,6 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { useAuth } from "@/hooks/useAuth";
-import { getLoginUrl } from "@/const";
+import { useAuth } from "@/contexts/AuthContext";
 import { Coffee, LogOut, LogIn, Menu, X } from "lucide-react";
 import { useState } from "react";
 
@@ -40,25 +39,21 @@ export default function Header() {
           >
             New Record
           </Link>
-          {isAuthenticated && user?.role === "admin" && (
-            <Link
-              href="/dashboard"
-              className={`text-sm font-medium transition-colors ${
-                location === "/dashboard" ? "text-goldwing-gold" : "text-gray-300 hover:text-white"
-              }`}
-            >
-              Dashboard
-            </Link>
-          )}
+          <Link
+            href="/dashboard"
+            className={`text-sm font-medium transition-colors ${
+              location === "/dashboard" ? "text-goldwing-gold" : "text-gray-300 hover:text-white"
+            }`}
+          >
+            Dashboard
+          </Link>
           <div className="flex items-center gap-3">
             {isAuthenticated ? (
               <>
-                <span className="text-sm text-gray-300">{user?.name || user?.email}</span>
-                {user?.role === "admin" && (
-                  <span className="px-2 py-0.5 bg-goldwing-gold text-goldwing-dark text-xs font-bold rounded">
-                    ADMIN
-                  </span>
-                )}
+                <span className="text-sm text-gray-300">{user?.name || "Admin"}</span>
+                <span className="px-2 py-0.5 bg-goldwing-gold text-goldwing-dark text-xs font-bold rounded">
+                  ADMIN
+                </span>
                 <button
                   onClick={logout}
                   className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors"
@@ -68,13 +63,13 @@ export default function Header() {
                 </button>
               </>
             ) : (
-              <a
-                href={getLoginUrl()}
+              <Link
+                href="/login"
                 className="flex items-center gap-1 text-sm text-goldwing-gold hover:text-goldwing-gold-light transition-colors"
               >
                 <LogIn className="w-4 h-4" />
                 Login
-              </a>
+              </Link>
             )}
           </div>
         </nav>
@@ -105,15 +100,13 @@ export default function Header() {
           >
             New Record
           </Link>
-          {isAuthenticated && user?.role === "admin" && (
-            <Link
-              href="/dashboard"
-              className="block text-gray-300 hover:text-white py-2"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Dashboard
-            </Link>
-          )}
+          <Link
+            href="/dashboard"
+            className="block text-gray-300 hover:text-white py-2"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            Dashboard
+          </Link>
           <div className="border-t border-gray-700 pt-3">
             {isAuthenticated ? (
               <button
@@ -127,13 +120,14 @@ export default function Header() {
                 Logout
               </button>
             ) : (
-              <a
-                href={getLoginUrl()}
+              <Link
+                href="/login"
                 className="flex items-center gap-2 text-goldwing-gold"
+                onClick={() => setMobileMenuOpen(false)}
               >
                 <LogIn className="w-4 h-4" />
                 Login
-              </a>
+              </Link>
             )}
           </div>
         </div>

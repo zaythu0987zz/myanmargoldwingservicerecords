@@ -1,6 +1,6 @@
 export const ENV = {
   databaseUrl: process.env.DATABASE_URL || "",
-  jwtSecret: process.env.JWT_SECRET || "",
+  jwtSecret: process.env.JWT_SECRET || "goldwing-service-app-secret-key-2024",
   ownerOpenId: process.env.OWNER_OPEN_ID || "",
   ownerName: process.env.OWNER_NAME || "",
   port: Number(process.env.PORT) || 3000,

@@ -1,6 +1,5 @@
 import { trpc } from "@/lib/trpc";
-import { useAuth } from "@/hooks/useAuth";
-import { getLoginUrl } from "@/const";
+import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
@@ -72,7 +71,6 @@ export default function NewRecord() {
   const updatePart = (index: number, field: keyof Part, value: string | number) => {
     const updated = [...parts];
     updated[index] = { ...updated[index], [field]: value };
-    // Auto-calculate total cost
     if (field === "quantity" || field === "unitPrice") {
       const qty = field === "quantity" ? (value as number) : updated[index].quantity;
       const price = field === "unitPrice" ? (value as string) : updated[index].unitPrice;
@@ -85,7 +83,7 @@ export default function NewRecord() {
     e.preventDefault();
     if (!isAuthenticated) {
       toast.error("Please login to create a service record");
-      window.location.href = getLoginUrl();
+      navigate("/login");
       return;
     }
 
@@ -108,11 +106,11 @@ export default function NewRecord() {
           <Coffee className="w-16 h-16 mx-auto text-gray-300 mb-4" />
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Login Required</h2>
           <p className="text-gray-500 mb-6">You need to be logged in to create service records.</p>
-          <a href={getLoginUrl()}>
+          <Link href="/login">
             <Button className="bg-goldwing-gold hover:bg-goldwing-gold-dark text-white">
               Login
             </Button>
-          </a>
+          </Link>
         </div>
       </div>
     );

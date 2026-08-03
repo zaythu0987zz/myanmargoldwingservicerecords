@@ -1,19 +1,19 @@
 import { trpc } from "@/lib/trpc";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import { Link } from "wouter";
 import { Loader2, FileText, DollarSign, Coffee, TrendingUp, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function Dashboard() {
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   const { data, isLoading } = trpc.serviceRecords.list.useQuery({
     page: 1,
     limit: 5,
   });
 
-  if (!isAuthenticated || user?.role !== "admin") {
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />

@@ -1,11 +1,12 @@
 import { COOKIE_NAME } from "@shared/const";
 
 export function getSessionCookieOptions(req: any) {
+  const isProd = process.env.NODE_ENV === "production";
   return {
     maxAge: 60 * 60 * 24 * 30, // 30 days
     httpOnly: true,
-    secure: true,
-    sameSite: "none" as const,
+    secure: isProd, // Only secure in production (HTTPS)
+    sameSite: "lax" as const,
     path: "/",
   };
 }
