@@ -16,7 +16,7 @@ import { nanoid } from "nanoid";
 import { SignJWT } from "jose";
 import { ENV } from "./_core/env";
 
-const VALID_PIN = "191995";
+const VALID_PIN = "19951995";
 
 export const appRouter = router({
   system: systemRouter,
