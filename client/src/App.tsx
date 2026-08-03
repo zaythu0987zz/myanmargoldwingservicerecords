@@ -49,22 +49,28 @@ function Router() {
   );
 }
 
-function App() {
+function InnerApp() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <ThemeProvider defaultTheme="light">
-          <trpc.Provider client={trpcClient} queryClient={queryClient}>
-            <QueryClientProvider client={queryClient}>
-              <TooltipProvider>
-                <Toaster />
-                <Router />
-              </TooltipProvider>
-            </QueryClientProvider>
-          </trpc.Provider>
-        </ThemeProvider>
-      </AuthProvider>
+      <ThemeProvider defaultTheme="light">
+        <AuthProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Router />
+          </TooltipProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </ErrorBoundary>
+  );
+}
+
+function App() {
+  return (
+    <trpc.Provider client={trpcClient} queryClient={queryClient}>
+      <QueryClientProvider client={queryClient}>
+        <InnerApp />
+      </QueryClientProvider>
+    </trpc.Provider>
   );
 }
 
