@@ -1,4 +1,3 @@
-import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
@@ -13,10 +12,6 @@ import {
   updateServiceRecord,
 } from "./db";
 import { nanoid } from "nanoid";
-import { SignJWT } from "jose";
-import { ENV } from "./_core/env";
-
-const VALID_PIN = "191995";
 
 export const appRouter = router({
   system: systemRouter,
@@ -24,39 +19,9 @@ export const appRouter = router({
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
 
-    loginPin: publicProcedure
-      .input(z.object({ pin: z.string().min(1) }))
-      .mutation(async ({ input, ctx }) => {
-        if (input.pin !== VALID_PIN) {
-          throw new Error("Invalid PIN");
-        }
-
-        // Create a JWT token for the admin session
-        const secret = new TextEncoder().encode(ENV.jwtSecret);
-        const token = await new SignJWT({
-          sub: "1",
-          name: "Admin",
-          role: "admin",
-        })
-          .setProtectedHeader({ alg: "HS256" })
-          .setExpirationTime("30d")
-          .sign(secret);
-
-        // Set the session cookie
-        const cookieOptions = getSessionCookieOptions(ctx.req);
-        ctx.res.cookie(COOKIE_NAME, token, {
-          ...cookieOptions,
-          httpOnly: true,
-          sameSite: "lax",
-          maxAge: 30 * 24 * 60 * 60, // 30 days
-        });
-
-        return { success: true, user: { id: "1", name: "Admin", role: "admin" } };
-      }),
-
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      ctx.res.clearCookie("__session", { ...cookieOptions, maxAge: -1 });
       return {
         success: true,
       } as const;

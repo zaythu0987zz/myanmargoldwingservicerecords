@@ -1,6 +1,4 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
-import { trpc } from "@/lib/trpc";
-import { toast } from "sonner";
 
 export type PinUser = {
   id: string;
@@ -12,13 +10,16 @@ type AuthContextType = {
   user: PinUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (pin: string) => Promise<boolean>;
+  login: (pin: string) => boolean;
   logout: () => void;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const PIN_STORAGE_KEY = "__goldwing_pin";
+// The valid PIN code — validated client-side
+const VALID_PIN = "191995";
+
+const AUTH_STORAGE_KEY = "__goldwing_auth";
 
 // Admin user returned after successful PIN auth
 const ADMIN_USER: PinUser = {
@@ -27,52 +28,47 @@ const ADMIN_USER: PinUser = {
   role: "admin",
 };
 
+function readStoredAuth(): PinUser | null {
+  try {
+    const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed && parsed.authenticated === true) {
+        return ADMIN_USER;
+      }
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return null;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<PinUser | null>(() => {
-    // Check localStorage for existing PIN session
-    if (typeof window !== "undefined") {
-      const storedPin = localStorage.getItem(PIN_STORAGE_KEY);
-      if (storedPin) return ADMIN_USER;
-    }
-    return null;
-  });
+  const [user, setUser] = useState<PinUser | null>(readStoredAuth);
 
-  const loginMutation = trpc.auth.loginPin.useMutation({
-    onSuccess: () => {
-      localStorage.setItem(PIN_STORAGE_KEY, "authenticated");
+  const login = useCallback((pin: string): boolean => {
+    if (pin === VALID_PIN) {
+      localStorage.setItem(
+        AUTH_STORAGE_KEY,
+        JSON.stringify({ authenticated: true, timestamp: Date.now() })
+      );
       setUser(ADMIN_USER);
-    },
-    onError: (error) => {
-      toast.error(`Login failed: ${error.message}`);
-    },
-  });
-
-  const logoutMutation = trpc.auth.logout.useMutation({
-    onSuccess: () => {
-      localStorage.removeItem(PIN_STORAGE_KEY);
-      setUser(null);
-    },
-  });
-
-  const login = useCallback(async (pin: string): Promise<boolean> => {
-    try {
-      await loginMutation.mutateAsync({ pin });
       return true;
-    } catch {
-      return false;
     }
-  }, [loginMutation]);
+    return false;
+  }, []);
 
   const logout = useCallback(() => {
-    logoutMutation.mutate();
-  }, [logoutMutation]);
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    setUser(null);
+  }, []);
 
   return (
     <AuthContext.Provider
       value={{
         user,
         isAuthenticated: !!user,
-        isLoading: loginMutation.isPending || logoutMutation.isPending,
+        isLoading: false,
         login,
         logout,
       }}

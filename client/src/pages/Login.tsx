@@ -4,14 +4,14 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Lock, Coffee, Loader2 } from "lucide-react";
+import { Lock, Coffee } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Login() {
   const { login, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
   const [pin, setPin] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [shake, setShake] = useState(false);
 
   // If already logged in, redirect to home
   if (isAuthenticated) {
@@ -19,30 +19,27 @@ export default function Login() {
     return null;
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!pin.trim()) {
       toast.error("Please enter a PIN");
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      const success = await login(pin.trim());
-      if (success) {
-        toast.success("Login successful!");
-        navigate("/");
-      } else {
-        toast.error("Invalid PIN. Please try again.");
-      }
-    } finally {
-      setIsSubmitting(false);
+    const success = login(pin.trim());
+    if (success) {
+      toast.success("Login successful!");
+      navigate("/");
+    } else {
+      setShake(true);
+      toast.error("Invalid PIN. Please try again.");
+      setTimeout(() => setShake(false), 500);
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+      <Card className={`w-full max-w-md ${shake ? "animate-pulse" : ""}`}>
         <CardHeader className="text-center">
           <div className="w-16 h-16 rounded-full bg-goldwing-gold flex items-center justify-center mx-auto mb-4">
             <Coffee className="w-8 h-8 text-goldwing-dark" />
@@ -73,16 +70,9 @@ export default function Login() {
             <Button
               type="submit"
               className="w-full bg-goldwing-gold hover:bg-goldwing-gold-dark text-white"
-              disabled={isSubmitting || !pin.trim()}
+              disabled={!pin.trim()}
             >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Verifying...
-                </>
-              ) : (
-                "Login"
-              )}
+              Login
             </Button>
           </form>
         </CardContent>
