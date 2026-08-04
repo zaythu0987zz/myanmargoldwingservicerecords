@@ -162,10 +162,14 @@ export const appRouter = router({
         if (db && input.parts.length > 0) {
           const { serviceParts: partsTable } = await import("../drizzle/schema");
           for (const part of input.parts) {
+            const partTotal = parseFloat(part.cost) || 0;
+            const partQty = part.quantity || 1;
+            const unitPrice = partQty > 0 ? (partTotal / partQty).toFixed(2) : "0";
             await db.insert(partsTable).values({
               recordId: record.insertId,
               partName: part.partName,
-              quantity: part.quantity,
+              quantity: partQty,
+              unitPrice,
               totalCost: part.cost,
             });
           }
@@ -217,12 +221,18 @@ export const appRouter = router({
           0
         );
 
+        // Handle purchasePlace: if explicitly provided (even empty string from form), use it
+        // Otherwise default to "Myanmar"
+        const purchasePlace = input.purchasePlace && input.purchasePlace.length > 0
+          ? input.purchasePlace
+          : "Myanmar";
+
         return updateServiceRecord(input.id, {
           brand: input.brand,
           modelName: input.modelName,
           serialNo: input.serialNo || undefined,
           useInPlace: input.useInPlace || undefined,
-          purchasePlace: input.purchasePlace || "Myanmar",
+          purchasePlace,
           customerName: input.customerName,
           customerPhone: input.customerPhone || null,
           customerAddress: input.customerAddress || null,
@@ -238,12 +248,18 @@ export const appRouter = router({
           serviceCharges: input.serviceCharges || "0",
           totalCost: totalCost.toString(),
         }, {
-          upsert: input.parts.map((p) => ({
-            recordId: input.id,
-            partName: p.partName,
-            quantity: p.quantity,
-            totalCost: p.cost,
-          })),
+          upsert: input.parts.map((p) => {
+            const partTotal = parseFloat(p.cost) || 0;
+            const partQty = p.quantity || 1;
+            const unitPrice = partQty > 0 ? (partTotal / partQty).toFixed(2) : "0";
+            return {
+              recordId: input.id,
+              partName: p.partName,
+              quantity: partQty,
+              unitPrice,
+              totalCost: p.cost,
+            };
+          }),
         });
       }),
 

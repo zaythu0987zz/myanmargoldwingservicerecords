@@ -114,7 +114,7 @@ export default function EditRecord() {
       modelName: formData.modelName,
       serialNo: formData.serialNo || undefined,
       useInPlace: formData.useInPlace || undefined,
-      purchasePlace: formData.purchasePlace || undefined,
+      purchasePlace: formData.purchasePlace ? formData.purchasePlace : undefined,
       customerName: formData.customerName,
       customerPhone: formData.customerPhone || undefined,
       customerAddress: formData.customerAddress || undefined,
