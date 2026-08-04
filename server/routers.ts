@@ -2,8 +2,9 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
-import { COOKIE_NAME } from "@shared/const";
+import { COOKIE_NAME } from "../shared/const";
 import { z } from "zod";
+import { Buffer } from "buffer";
 import {
   createServiceRecord,
   deleteServiceRecord,
@@ -34,10 +35,10 @@ export const appRouter = router({
         const { JWT } = ctx.res.locals || {};
         const jwtSecret = process.env.JWT_SECRET || "goldwing-service-app-secret-key-2024";
 
-        // Create a JWT token
+        // Create a JWT-like token using Buffer (Node.js compatible)
         const token = (() => {
-          const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
-          const payload = btoa(JSON.stringify({ sub: "1", name: "Admin", role: "admin", iat: Date.now() / 1000 }));
+          const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+          const payload = Buffer.from(JSON.stringify({ sub: "1", name: "Admin", role: "admin", iat: Math.floor(Date.now() / 1000) })).toString("base64url");
           return `${header}.${payload}.pin-auth`;
         })();
 

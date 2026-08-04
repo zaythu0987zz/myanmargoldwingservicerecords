@@ -1,4 +1,4 @@
-import { COOKIE_NAME } from "@shared/const";
+import { COOKIE_NAME } from "../../shared/const";
 import { parseCookie } from "./cookies";
 import { ENV } from "./env";
 

@@ -1,4 +1,4 @@
-import { COOKIE_NAME } from "@shared/const";
+import { COOKIE_NAME } from "../../shared/const";
 
 export function getSessionCookieOptions(req: any) {
   const isProd = process.env.NODE_ENV === "production";

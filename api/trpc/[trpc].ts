@@ -1,7 +1,7 @@
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import express from "express";
 import cookieParser from "cookie-parser";
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import superjson from "superjson";
 
 // Dynamic import to handle ESM/CJS compatibility
 async function getRouter() {
@@ -15,7 +15,7 @@ async function getCreateContext() {
 }
 
 // Handle the request
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: any, res: any) {
   try {
     const [router, createContext] = await Promise.all([getRouter(), getCreateContext()]);
 
@@ -24,18 +24,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     app.use(express.json());
     app.use(cookieParser());
 
-    // Mount tRPC middleware at root (Vercel already routes to this function)
+    // Mount tRPC middleware at root with superjson transformer
+    // This MUST match the client-side httpBatchLink transformer
     app.use(
       "/",
       createExpressMiddleware({
         router,
         createContext,
+        transformer: superjson,
       })
     );
 
     app(req, res);
-  } catch (error) {
-    console.error("tRPC handler error:", error);
+  } catch (error: any) {
+    console.error("tRPC handler error:", error?.message || error);
     res.status(500).json({ error: "Internal server error" });
   }
 }
