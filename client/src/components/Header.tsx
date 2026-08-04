@@ -8,9 +8,13 @@ export default function Header() {
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
       <div className="container flex items-center justify-between h-16">
-        <Link href="/" className="flex flex-col items-start hover:opacity-90 transition-opacity">
-          <span className="text-xl font-black tracking-wider text-gray-900">GOLDWING</span>
-          <span className="text-[10px] text-gray-500 tracking-wide">PRODUCTS INFORMATION & AFTER SALES SERVICE</span>
+        <Link href="/" className="flex items-center hover:opacity-90 transition-opacity">
+          <img
+            src="/logo.png"
+            alt="Myanmar Gold Wing Ltd."
+            className="h-12 w-auto object-contain sm:h-14 md:h-16"
+            style={{ imageRendering: "auto" }}
+          />
         </Link>
 
         <div className="flex items-center gap-3">
