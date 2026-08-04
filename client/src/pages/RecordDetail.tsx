@@ -2,10 +2,11 @@ import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import { Link, useParams } from "wouter";
-import { Loader2, ArrowLeft, QrCode, Calendar, User, MapPin, Wrench, DollarSign, ClipboardList } from "lucide-react";
+import { Loader2, ArrowLeft, Calendar, User, MapPin, Wrench, DollarSign, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { QRCodeSVG } from "qrcode.react";
 
 export default function RecordDetail() {
   const { id } = useParams<{ id: string }>();
@@ -77,8 +78,13 @@ export default function RecordDetail() {
           <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
             <div className="flex items-center justify-center py-6">
               <div className="text-center">
-                <div className="w-32 h-32 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <QrCode className="w-16 h-16 text-[#e85d04]" />
+                <div className="bg-white rounded-lg p-4 mx-auto mb-3 inline-block shadow-sm">
+                  <QRCodeSVG
+                    value={`${window.location.origin}/record/${recordId}`}
+                    size={160}
+                    level="M"
+                    fgColor="#e85d04"
+                  />
                 </div>
                 <p className="text-sm text-gray-500 font-mono">{record.qrCode}</p>
               </div>

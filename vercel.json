@@ -3,6 +3,12 @@
   "installCommand": "npm install --legacy-peer-deps",
   "buildCommand": "npm run build:client",
   "outputDirectory": "dist/public",
+  "functions": {
+    "api/trpc/[trpc].ts": {
+      "memory": 256,
+      "maxDuration": 10
+    }
+  },
   "headers": [
     {
       "source": "/assets/(.*)",
@@ -14,10 +20,17 @@
       ]
     }
   ],
-  "rewrites": [
+  "routes": [
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "src": "/api/trpc/(.*)",
+      "dest": "/api/trpc/[trpc].ts?_req=$1"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ]
 }

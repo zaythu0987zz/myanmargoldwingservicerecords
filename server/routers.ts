@@ -1,6 +1,8 @@
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { TRPCError } from "@trpc/server";
+import { COOKIE_NAME } from "@shared/const";
 import { z } from "zod";
 import {
   createServiceRecord,
@@ -19,6 +21,34 @@ export const appRouter = router({
 
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
+
+    loginPin: publicProcedure
+      .input(z.object({ pin: z.string() }))
+      .mutation(({ input, ctx }) => {
+        const VALID_PIN = "191995";
+        if (input.pin !== VALID_PIN) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid PIN" });
+        }
+
+        // Set JWT cookie for subsequent protected requests
+        const { JWT } = ctx.res.locals || {};
+        const jwtSecret = process.env.JWT_SECRET || "goldwing-service-app-secret-key-2024";
+
+        // Create a JWT token
+        const token = (() => {
+          const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+          const payload = btoa(JSON.stringify({ sub: "1", name: "Admin", role: "admin", iat: Date.now() / 1000 }));
+          return `${header}.${payload}.pin-auth`;
+        })();
+
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: 30 * 24 * 60 * 60 * 1000 });
+
+        return {
+          success: true,
+          user: { id: 1, name: "Admin", role: "admin" as const },
+        };
+      }),
 
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);

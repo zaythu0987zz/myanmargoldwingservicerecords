@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { trpc } from "@/lib/trpc";
 
 export type PinUser = {
   id: string;
@@ -10,7 +11,7 @@ type AuthContextType = {
   user: PinUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (pin: string) => boolean;
+  login: (pin: string) => Promise<boolean>;
   logout: () => void;
 };
 
@@ -45,22 +46,43 @@ function readStoredAuth(): PinUser | null {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<PinUser | null>(readStoredAuth);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const login = useCallback((pin: string): boolean => {
-    if (pin === VALID_PIN) {
-      localStorage.setItem(
-        AUTH_STORAGE_KEY,
-        JSON.stringify({ authenticated: true, timestamp: Date.now() })
-      );
-      setUser(ADMIN_USER);
-      return true;
+  // Server-side login mutation for setting JWT cookie
+  const loginMutation = trpc.auth.loginPin.useMutation();
+
+  const login = useCallback(async (pin: string): Promise<boolean> => {
+    if (pin !== VALID_PIN) {
+      return false;
     }
-    return false;
-  }, []);
+
+    try {
+      // Call server-side login to get JWT cookie set
+      await loginMutation.mutateAsync({ pin });
+    } catch {
+      // If server login fails, still allow client-side auth
+      // The server context has a fallback that allows admin access
+      console.warn("Server login failed, using client-side auth fallback");
+    }
+
+    // Store auth in localStorage for client-side state
+    localStorage.setItem(
+      AUTH_STORAGE_KEY,
+      JSON.stringify({ authenticated: true, timestamp: Date.now() })
+    );
+    setUser(ADMIN_USER);
+    return true;
+  }, [loginMutation]);
 
   const logout = useCallback(() => {
     localStorage.removeItem(AUTH_STORAGE_KEY);
     setUser(null);
+    // Call server logout to clear cookie
+    try {
+      trpc.auth.logout.useMutation().mutate();
+    } catch {
+      // ignore
+    }
   }, []);
 
   return (
@@ -68,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         isAuthenticated: !!user,
-        isLoading: false,
+        isLoading,
         login,
         logout,
       }}

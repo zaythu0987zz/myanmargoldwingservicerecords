@@ -19,11 +19,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const [router, createContext] = await Promise.all([getRouter(), getCreateContext()]);
 
+    // Create a minimal Express app for tRPC
     const app = express();
     app.use(express.json());
     app.use(cookieParser());
+
+    // Mount tRPC middleware at root (Vercel already routes to this function)
     app.use(
-      "/api/trpc",
+      "/",
       createExpressMiddleware({
         router,
         createContext,

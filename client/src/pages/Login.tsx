@@ -18,7 +18,7 @@ export default function Login() {
     return null;
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pin.trim()) {
       toast.error("Please enter a PIN");
@@ -26,7 +26,7 @@ export default function Login() {
     }
 
     setIsLoading(true);
-    const success = login(pin.trim());
+    const success = await login(pin.trim());
     if (success) {
       toast.success("Login successful!");
       navigate("/");

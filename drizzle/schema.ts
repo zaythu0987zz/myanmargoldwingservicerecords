@@ -81,7 +81,7 @@ export const serviceParts = mysqlTable("service_parts", {
   partName: varchar("partName", { length: 255 }).notNull(),
   partDescription: text("partDescription"),
   quantity: int("quantity").notNull(),
-  unitPrice: decimal("unitPrice", { precision: 10, scale: 2 }).notNull(),
+  unitPrice: decimal("unitPrice", { precision: 10, scale: 2 }).default("0"),
   totalCost: decimal("totalCost", { precision: 10, scale: 2 }).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });

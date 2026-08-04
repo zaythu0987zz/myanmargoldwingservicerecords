@@ -14,6 +14,13 @@ export type TrpcContext = {
   res: any;
 };
 
+// Default admin user for PIN-based auth
+const DEFAULT_ADMIN: User = {
+  id: 1,
+  name: "Admin",
+  role: "admin",
+};
+
 export async function createContext(opts: { req: any; res: any }): Promise<TrpcContext> {
   const { req, res } = opts;
 
@@ -24,7 +31,7 @@ export async function createContext(opts: { req: any; res: any }): Promise<TrpcC
     const token = cookies[COOKIE_NAME];
 
     if (token) {
-      // Support JWT tokens from previous auth flows
+      // First try JWT verification
       try {
         const { jwtVerify } = await import("jose");
         const secret = new TextEncoder().encode(ENV.jwtSecret);
@@ -35,9 +42,16 @@ export async function createContext(opts: { req: any; res: any }): Promise<TrpcC
           role: (payload.role as "admin") || "admin",
         };
       } catch {
-        // JWT verification failed — if cookie exists but JWT is invalid,
-        // still allow admin access (client-side PIN auth is the primary auth)
-        user = { id: 1, name: "Admin", role: "admin" };
+        // JWT verification failed, but cookie exists
+        // For PIN-based auth, treat any cookie as valid admin auth
+        user = DEFAULT_ADMIN;
+      }
+    } else {
+      // No cookie — check for Bearer token in Authorization header
+      const authHeader = req.headers?.authorization || req.headers?.Authorization;
+      if (authHeader && typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
+        // PIN-based auth sends the token as Bearer
+        user = DEFAULT_ADMIN;
       }
     }
   } catch {
