@@ -236,7 +236,7 @@ export async function updateServiceRecord(
   // Delete ALL existing parts for this record
   await db.delete(serviceParts).where(eq(serviceParts.recordId, id));
 
-  // Insert all parts fresh (no upsert needed since we deleted all)
+    // Insert all parts fresh (no upsert needed since we deleted all)
   if (partsData.upsert.length > 0) {
     // Insert in batch for better performance
     await db.insert(serviceParts).values(
@@ -244,6 +244,7 @@ export async function updateServiceRecord(
         recordId: id,
         partName: p.partName,
         quantity: p.quantity,
+        unitPrice: p.unitPrice,
         totalCost: p.totalCost,
       }))
     );

@@ -74596,6 +74596,7 @@ async function updateServiceRecord(id, record2, partsData) {
         recordId: id,
         partName: p.partName,
         quantity: p.quantity,
+        unitPrice: p.unitPrice,
         totalCost: p.totalCost
       }))
     );
