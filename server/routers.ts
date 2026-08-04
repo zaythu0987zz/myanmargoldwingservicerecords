@@ -16,6 +16,7 @@ import { nanoid } from "nanoid";
 import { SignJWT } from "jose";
 import { ENV } from "./_core/env";
 
+// The valid PIN — hardcoded, no env variables needed
 const VALID_PIN = "191995";
 
 export const appRouter = router({
@@ -28,7 +29,7 @@ export const appRouter = router({
       .input(z.object({ pin: z.string().min(1) }))
       .mutation(async ({ input, ctx }) => {
         if (input.pin !== VALID_PIN) {
-          throw new Error("Invalid PIN");
+          throw new Error("Invalid PIN. Please try again.");
         }
 
         // Create a JWT token for the admin session

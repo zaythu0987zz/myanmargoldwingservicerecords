@@ -34,7 +34,7 @@ export async function createContext(opts: { req: any; res: any }): Promise<TrpcC
           role: (payload.role as "admin") || "admin",
         };
       } catch {
-        // Token invalid, continue without user
+        // Token invalid or expired — no user
       }
     }
   } catch {

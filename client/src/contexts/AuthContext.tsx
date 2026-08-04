@@ -18,8 +18,6 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const PIN_STORAGE_KEY = "__goldwing_pin";
-
 // Admin user returned after successful PIN auth
 const ADMIN_USER: PinUser = {
   id: "admin",
@@ -27,29 +25,49 @@ const ADMIN_USER: PinUser = {
   role: "admin",
 };
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<PinUser | null>(() => {
-    // Check localStorage for existing PIN session
-    if (typeof window !== "undefined") {
-      const storedPin = localStorage.getItem(PIN_STORAGE_KEY);
-      if (storedPin) return ADMIN_USER;
+const AUTH_STORAGE_KEY = "__goldwing_auth";
+
+function readStoredAuth(): PinUser | null {
+  try {
+    const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed && parsed.authenticated === true) {
+        return ADMIN_USER;
+      }
     }
-    return null;
-  });
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<PinUser | null>(readStoredAuth);
 
   const loginMutation = trpc.auth.loginPin.useMutation({
-    onSuccess: () => {
-      localStorage.setItem(PIN_STORAGE_KEY, "authenticated");
-      setUser(ADMIN_USER);
+    onSuccess: (data) => {
+      if (data.success) {
+        localStorage.setItem(
+          AUTH_STORAGE_KEY,
+          JSON.stringify({ authenticated: true, timestamp: Date.now() })
+        );
+        setUser(ADMIN_USER);
+      }
     },
     onError: (error) => {
-      toast.error(`Login failed: ${error.message}`);
+      toast.error(error.message || "Login failed. Please try again.");
     },
   });
 
   const logoutMutation = trpc.auth.logout.useMutation({
     onSuccess: () => {
-      localStorage.removeItem(PIN_STORAGE_KEY);
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      setUser(null);
+    },
+    onError: () => {
+      // Even if server logout fails, clear client state
+      localStorage.removeItem(AUTH_STORAGE_KEY);
       setUser(null);
     },
   });
@@ -64,7 +82,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [loginMutation]);
 
   const logout = useCallback(() => {
-    logoutMutation.mutate();
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    setUser(null);
+    try {
+      logoutMutation.mutate();
+    } catch {
+      // silently ignore server logout errors
+    }
   }, [logoutMutation]);
 
   return (
@@ -72,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         isAuthenticated: !!user,
-        isLoading: loginMutation.isPending || logoutMutation.isPending,
+        isLoading: loginMutation.isPending,
         login,
         logout,
       }}

@@ -8,10 +8,9 @@ import { Lock, Coffee, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Login() {
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, isLoading } = useAuth();
   const [, navigate] = useLocation();
   const [pin, setPin] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // If already logged in, redirect to home
   if (isAuthenticated) {
@@ -26,18 +25,12 @@ export default function Login() {
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      const success = await login(pin.trim());
-      if (success) {
-        toast.success("Login successful!");
-        navigate("/");
-      } else {
-        toast.error("Invalid PIN. Please try again.");
-      }
-    } finally {
-      setIsSubmitting(false);
+    const success = await login(pin.trim());
+    if (success) {
+      toast.success("Login successful!");
+      navigate("/");
     }
+    // If login fails, the error toast is already shown by AuthContext's onError
   };
 
   return (
@@ -73,9 +66,9 @@ export default function Login() {
             <Button
               type="submit"
               className="w-full bg-goldwing-gold hover:bg-goldwing-gold-dark text-white"
-              disabled={isSubmitting || !pin.trim()}
+              disabled={isLoading || !pin.trim()}
             >
-              {isSubmitting ? (
+              {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Verifying...
