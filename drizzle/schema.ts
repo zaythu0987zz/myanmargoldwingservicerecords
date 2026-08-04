@@ -7,7 +7,6 @@ import {
   varchar,
   boolean,
   decimal,
-  json,
 } from "drizzle-orm/mysql-core";
 
 /**
@@ -34,21 +33,37 @@ export type InsertUser = typeof users.$inferInsert;
 export const serviceRecords = mysqlTable("service_records", {
   id: int("id").autoincrement().primaryKey(),
   qrCode: varchar("qrCode", { length: 255 }).unique().notNull(),
+
+  // Product Information
   brand: mysqlEnum("brand", ["DeLonghi", "Kenwood", "Braun", "NutriBullet", "Other"]).notNull(),
   modelName: varchar("modelName", { length: 255 }).notNull(),
+  serialNo: varchar("serialNo", { length: 255 }),
+  useInPlace: varchar("useInPlace", { length: 255 }),
+  purchasePlace: mysqlEnum("purchasePlace", ["Myanmar", "Overseas"]).default("Myanmar").notNull(),
+  serviceDate: timestamp("serviceDate").notNull(),
+
+  // Customer Information
   customerName: varchar("customerName", { length: 255 }).notNull(),
   customerPhone: varchar("customerPhone", { length: 50 }),
-  customerEmail: varchar("customerEmail", { length: 320 }),
-  location: mysqlEnum("location", ["Myanmar", "Overseas"]).notNull(),
-  serviceDate: timestamp("serviceDate").notNull(),
-  nextServiceDate: timestamp("nextServiceDate"),
+  customerAddress: text("customerAddress"),
+
+  // Machine Issues & Checklist
+  inDate: timestamp("inDate"),
+  outDate: timestamp("outDate"),
   coffeeCleaning: boolean("coffeeCleaning").default(false).notNull(),
   waterCleaning: boolean("waterCleaning").default(false).notNull(),
   descaling: boolean("descaling").default(false).notNull(),
   milkCleaning: boolean("milkCleaning").default(false).notNull(),
+  technicalIssues: text("technicalIssues"),
+
+  // Repair Information
+  repairedBy: varchar("repairedBy", { length: 255 }),
+  serviceCharges: decimal("serviceCharges", { precision: 10, scale: 2 }),
+  totalCost: decimal("totalCost", { precision: 10, scale: 2 }),
+
+  // Metadata
   notes: text("notes"),
   technicianName: varchar("technicianName", { length: 255 }),
-  totalCost: decimal("totalCost", { precision: 10, scale: 2 }),
   createdBy: int("createdBy"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

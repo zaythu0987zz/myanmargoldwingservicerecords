@@ -10,6 +10,7 @@ import {
   getServiceRecordById,
   getServiceRecordByQrCode,
   updateServiceRecord,
+  getDb,
 } from "./db";
 import { nanoid } from "nanoid";
 
@@ -37,7 +38,7 @@ export const appRouter = router({
           limit: z.number().min(1).max(100).default(20),
           search: z.string().optional(),
           brand: z.string().optional(),
-          location: z.string().optional(),
+          purchasePlace: z.string().optional(),
           dateFrom: z.string().optional(),
           dateTo: z.string().optional(),
         })
@@ -66,25 +67,27 @@ export const appRouter = router({
         z.object({
           brand: z.enum(["DeLonghi", "Kenwood", "Braun", "NutriBullet", "Other"]),
           modelName: z.string().min(1),
+          serialNo: z.string().optional(),
+          useInPlace: z.string().optional(),
+          purchasePlace: z.enum(["Myanmar", "Overseas"]).optional(),
           customerName: z.string().min(1),
           customerPhone: z.string().optional(),
-          customerEmail: z.string().email().optional().or(z.literal("")),
-          location: z.enum(["Myanmar", "Overseas"]),
+          customerAddress: z.string().optional(),
           serviceDate: z.string(),
-          nextServiceDate: z.string().optional(),
+          inDate: z.string().optional(),
+          outDate: z.string().optional(),
           coffeeCleaning: z.boolean().default(false),
           waterCleaning: z.boolean().default(false),
           descaling: z.boolean().default(false),
           milkCleaning: z.boolean().default(false),
-          notes: z.string().optional(),
-          technicianName: z.string().optional(),
+          technicalIssues: z.string().optional(),
+          repairedBy: z.string().optional(),
+          serviceCharges: z.string().optional(),
           parts: z.array(
             z.object({
               partName: z.string().min(1),
-              partDescription: z.string().optional(),
-              quantity: z.number().min(1),
-              unitPrice: z.string(),
-              totalCost: z.string(),
+              quantity: z.number().min(1).default(1),
+              cost: z.string().default("0"),
             })
           ),
         })
@@ -92,12 +95,11 @@ export const appRouter = router({
       .mutation(async ({ input, ctx }) => {
         const qrCode = nanoid(12);
         const serviceDate = new Date(input.serviceDate);
-        const nextServiceDate = input.nextServiceDate
-          ? new Date(input.nextServiceDate)
-          : undefined;
+        const inDate = input.inDate ? new Date(input.inDate) : undefined;
+        const outDate = input.outDate ? new Date(input.outDate) : undefined;
 
         const totalCost = input.parts.reduce(
-          (sum, part) => sum + parseFloat(part.totalCost || "0"),
+          (sum, part) => sum + parseFloat(part.cost || "0"),
           0
         );
 
@@ -105,34 +107,35 @@ export const appRouter = router({
           qrCode,
           brand: input.brand,
           modelName: input.modelName,
+          serialNo: input.serialNo || null,
+          useInPlace: input.useInPlace || null,
+          purchasePlace: input.purchasePlace || null,
           customerName: input.customerName,
           customerPhone: input.customerPhone || null,
-          customerEmail: input.customerEmail || null,
-          location: input.location,
+          customerAddress: input.customerAddress || null,
           serviceDate,
-          nextServiceDate,
+          inDate,
+          outDate,
           coffeeCleaning: input.coffeeCleaning,
           waterCleaning: input.waterCleaning,
           descaling: input.descaling,
           milkCleaning: input.milkCleaning,
-          notes: input.notes || null,
-          technicianName: input.technicianName || null,
+          technicalIssues: input.technicalIssues || null,
+          repairedBy: input.repairedBy || null,
+          serviceCharges: input.serviceCharges || "0",
           totalCost: totalCost.toString(),
           createdBy: ctx.user?.id || null,
         });
 
-        const db = await import("./db").then((m) => m.getDb());
-        const dbInstance = await db();
-        if (dbInstance && input.parts.length > 0) {
+        const db = await getDb();
+        if (db && input.parts.length > 0) {
           const { serviceParts: partsTable } = await import("../drizzle/schema");
           for (const part of input.parts) {
-            await dbInstance.insert(partsTable).values({
+            await db.insert(partsTable).values({
               recordId: record.insertId,
               partName: part.partName,
-              partDescription: part.partDescription || null,
               quantity: part.quantity,
-              unitPrice: part.unitPrice,
-              totalCost: part.totalCost,
+              totalCost: part.cost,
             });
           }
         }
@@ -147,62 +150,66 @@ export const appRouter = router({
           id: z.number(),
           brand: z.enum(["DeLonghi", "Kenwood", "Braun", "NutriBullet", "Other"]),
           modelName: z.string().min(1),
+          serialNo: z.string().optional(),
+          useInPlace: z.string().optional(),
+          purchasePlace: z.enum(["Myanmar", "Overseas"]).optional(),
           customerName: z.string().min(1),
           customerPhone: z.string().optional(),
-          customerEmail: z.string().email().optional().or(z.literal("")),
-          location: z.enum(["Myanmar", "Overseas"]),
+          customerAddress: z.string().optional(),
           serviceDate: z.string(),
-          nextServiceDate: z.string().optional(),
+          inDate: z.string().optional(),
+          outDate: z.string().optional(),
           coffeeCleaning: z.boolean(),
           waterCleaning: z.boolean(),
           descaling: z.boolean(),
           milkCleaning: z.boolean(),
-          notes: z.string().optional(),
-          technicianName: z.string().optional(),
+          technicalIssues: z.string().optional(),
+          repairedBy: z.string().optional(),
+          serviceCharges: z.string().optional(),
           parts: z.array(
             z.object({
               id: z.number().optional(),
               partName: z.string().min(1),
-              partDescription: z.string().optional(),
               quantity: z.number().min(1),
-              unitPrice: z.string(),
-              totalCost: z.string(),
+              cost: z.string(),
             })
           ),
         })
       )
       .mutation(async ({ input }) => {
         const serviceDate = new Date(input.serviceDate);
-        const nextServiceDate = input.nextServiceDate
-          ? new Date(input.nextServiceDate)
-          : undefined;
+        const inDate = input.inDate ? new Date(input.inDate) : undefined;
+        const outDate = input.outDate ? new Date(input.outDate) : undefined;
 
         const totalCost = input.parts.reduce(
-          (sum, part) => sum + parseFloat(part.totalCost || "0"),
+          (sum, part) => sum + parseFloat(part.cost || "0"),
           0
         );
 
         return updateServiceRecord(input.id, {
           brand: input.brand,
           modelName: input.modelName,
+          serialNo: input.serialNo || null,
+          useInPlace: input.useInPlace || null,
+          purchasePlace: input.purchasePlace || null,
           customerName: input.customerName,
           customerPhone: input.customerPhone || null,
-          customerEmail: input.customerEmail || null,
-          location: input.location,
+          customerAddress: input.customerAddress || null,
           serviceDate,
-          nextServiceDate,
+          inDate,
+          outDate,
           coffeeCleaning: input.coffeeCleaning,
           waterCleaning: input.waterCleaning,
           descaling: input.descaling,
           milkCleaning: input.milkCleaning,
-          notes: input.notes || null,
-          technicianName: input.technicianName || null,
+          technicalIssues: input.technicalIssues || null,
+          repairedBy: input.repairedBy || null,
+          serviceCharges: input.serviceCharges || "0",
           totalCost: totalCost.toString(),
         }, {
           upsert: input.parts.map((p) => ({
             ...p,
             recordId: input.id,
-            partDescription: p.partDescription || null,
           })),
         });
       }),

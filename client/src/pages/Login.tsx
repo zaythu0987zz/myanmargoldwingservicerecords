@@ -1,19 +1,18 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Lock, Coffee } from "lucide-react";
+import { Lock } from "lucide-react";
 import { toast } from "sonner";
+import Header from "@/components/Header";
 
 export default function Login() {
   const { login, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
   const [pin, setPin] = useState("");
-  const [shake, setShake] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // If already logged in, redirect to home
   if (isAuthenticated) {
     window.location.href = "/";
     return null;
@@ -26,57 +25,75 @@ export default function Login() {
       return;
     }
 
+    setIsLoading(true);
     const success = login(pin.trim());
     if (success) {
       toast.success("Login successful!");
       navigate("/");
     } else {
-      setShake(true);
       toast.error("Invalid PIN. Please try again.");
-      setTimeout(() => setShake(false), 500);
+      setPin("");
     }
+    setIsLoading(false);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <Card className={`w-full max-w-md ${shake ? "animate-pulse" : ""}`}>
-        <CardHeader className="text-center">
-          <div className="w-16 h-16 rounded-full bg-goldwing-gold flex items-center justify-center mx-auto mb-4">
-            <Coffee className="w-8 h-8 text-goldwing-dark" />
-          </div>
-          <CardTitle className="text-2xl text-goldwing-dark">Goldwing</CardTitle>
-          <CardDescription>Enter your PIN to access the service record system</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="pin" className="block text-sm font-medium text-gray-700 mb-1">
-                PIN Code
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                  id="pin"
-                  type="password"
-                  placeholder="Enter your PIN"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  className="pl-10 text-lg tracking-widest"
-                  autoFocus
-                  maxLength={10}
-                />
+    <div className="min-h-screen bg-beige">
+      <Header />
+
+      <div className="container py-12 flex items-center justify-center">
+        <div className="w-full max-w-md">
+          {/* Login Card */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            {/* Orange header bar */}
+            <div className="h-2 bg-goldwing-gold" />
+
+            <div className="p-8">
+              <h2 className="text-xl font-bold text-gray-900 mb-6 text-center">Owner Login</h2>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label htmlFor="pin" className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Enter PIN
+                  </label>
+                  <Input
+                    id="pin"
+                    type="password"
+                    placeholder="Enter your PIN"
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value)}
+                    className="text-lg tracking-widest"
+                    autoFocus
+                    maxLength={10}
+                  />
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full bg-goldwing-gold hover:bg-goldwing-gold-dark text-white font-medium py-3"
+                  disabled={!pin.trim() || isLoading}
+                >
+                  {isLoading ? "Logging in..." : "Login"}
+                </Button>
+              </form>
+
+              <div className="border-t border-gray-200 mt-6 pt-6">
+                <p className="text-sm text-gray-500 text-center mb-3">Want to view service records?</p>
+                <Link href="/history">
+                  <Button variant="outline" className="w-full">
+                    View Records (Public)
+                  </Button>
+                </Link>
               </div>
             </div>
-            <Button
-              type="submit"
-              className="w-full bg-goldwing-gold hover:bg-goldwing-gold-dark text-white"
-              disabled={!pin.trim()}
-            >
-              Login
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <footer className="text-center py-6 text-sm text-gray-400">
+        Made with ZLP
+      </footer>
     </div>
   );
 }

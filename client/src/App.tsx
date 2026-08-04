@@ -11,6 +11,8 @@ import RecordDetail from "./pages/RecordDetail";
 import EditRecord from "./pages/EditRecord";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
+import History from "./pages/History";
+import QRScanner from "./pages/QRScanner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { httpBatchLink } from "@trpc/client";
 import { trpc } from "./lib/trpc";
@@ -42,6 +44,8 @@ function Router() {
       <Route path="/new" component={NewRecord} />
       <Route path="/record/:id" component={RecordDetail} />
       <Route path="/edit/:id" component={EditRecord} />
+      <Route path="/history" component={History} />
+      <Route path="/qr-scanner" component={QRScanner} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />

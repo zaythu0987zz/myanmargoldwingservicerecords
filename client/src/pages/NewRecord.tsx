@@ -1,83 +1,62 @@
-import { trpc } from "@/lib/trpc";
-import { useAuth } from "@/contexts/AuthContext";
-import Header from "@/components/Header";
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { useAuth } from "@/contexts/AuthContext";
+import { useLocation } from "wouter";
+import { trpc } from "@/lib/trpc";
+import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, Plus, Loader2, Coffee } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { Loader2, Plus, Trash2, Link } from "lucide-react";
 
-type Part = {
-  partName: string;
-  partDescription: string;
-  quantity: number;
-  unitPrice: string;
-  totalCost: string;
-};
+const sections = [
+  { number: 1, title: "Product Information" },
+  { number: 2, title: "Customer Information" },
+  { number: 3, title: "Issues & Service" },
+  { number: 4, title: "Parts" },
+  { number: 5, title: "Repair Summary" },
+];
 
 export default function NewRecord() {
   const { isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
-  const createMutation = trpc.serviceRecords.create.useMutation({
-    onSuccess: (result) => {
-      toast.success("Service record created successfully!");
-      navigate(`/record/${result.id}`);
-    },
-    onError: (error) => {
-      toast.error(`Failed to create record: ${error.message}`);
-    },
-  });
 
   const [formData, setFormData] = useState({
-    brand: "DeLonghi",
+    brand: "",
     modelName: "",
+    serialNo: "",
+    useInPlace: "",
+    purchasePlace: "",
     customerName: "",
     customerPhone: "",
-    customerEmail: "",
-    location: "Myanmar",
-    serviceDate: new Date().toISOString().split("T")[0],
-    nextServiceDate: "",
+    customerAddress: "",
+    date: new Date().toISOString().split("T")[0],
+    inDate: "",
+    outDate: "",
     coffeeCleaning: false,
     waterCleaning: false,
     descaling: false,
     milkCleaning: false,
-    notes: "",
-    technicianName: "",
+    technicalIssues: "",
+    repairedBy: "",
+    serviceCharges: "",
   });
 
-  const [parts, setParts] = useState<Part[]>([
-    { partName: "", partDescription: "", quantity: 1, unitPrice: "", totalCost: "" },
+  const [parts, setParts] = useState<{ partName: string; quantity: number; cost: string }[]>([
+    { partName: "", quantity: 1, cost: "0" },
   ]);
 
-  const addPart = () => {
-    setParts([
-      ...parts,
-      { partName: "", partDescription: "", quantity: 1, unitPrice: "", totalCost: "" },
-    ]);
-  };
-
-  const removePart = (index: number) => {
-    if (parts.length > 1) {
-      setParts(parts.filter((_, i) => i !== index));
-    }
-  };
-
-  const updatePart = (index: number, field: keyof Part, value: string | number) => {
-    const updated = [...parts];
-    updated[index] = { ...updated[index], [field]: value };
-    if (field === "quantity" || field === "unitPrice") {
-      const qty = field === "quantity" ? (value as number) : updated[index].quantity;
-      const price = field === "unitPrice" ? (value as string) : updated[index].unitPrice;
-      updated[index].totalCost = (qty * parseFloat(price || "0")).toFixed(2);
-    }
-    setParts(updated);
-  };
+  const createMutation = trpc.serviceRecords.create.useMutation({
+    onSuccess: (data) => {
+      toast.success("Record created successfully!");
+      navigate(`/record/${data.id}`);
+    },
+    onError: (error) => {
+      toast.error(`Failed: ${error.message}`);
+    },
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,308 +65,234 @@ export default function NewRecord() {
       navigate("/login");
       return;
     }
+    if (!formData.brand || !formData.customerName || !formData.date) {
+      toast.error("Please fill in required fields: Brand, Customer Name, and Date");
+      return;
+    }
 
     const validParts = parts.filter((p) => p.partName.trim());
 
     createMutation.mutate({
-      ...formData,
-      parts: validParts.map((p) => ({
-        ...p,
-        quantity: p.quantity,
-      })),
+      brand: formData.brand as any,
+      modelName: formData.modelName,
+      serialNo: formData.serialNo || undefined,
+      useInPlace: formData.useInPlace || undefined,
+      purchasePlace: formData.purchasePlace || undefined,
+      customerName: formData.customerName,
+      customerPhone: formData.customerPhone || undefined,
+      customerAddress: formData.customerAddress || undefined,
+      serviceDate: formData.date,
+      inDate: formData.inDate || undefined,
+      outDate: formData.outDate || undefined,
+      coffeeCleaning: formData.coffeeCleaning,
+      waterCleaning: formData.waterCleaning,
+      descaling: formData.descaling,
+      milkCleaning: formData.milkCleaning,
+      technicalIssues: formData.technicalIssues || undefined,
+      repairedBy: formData.repairedBy || undefined,
+      serviceCharges: formData.serviceCharges || "0",
+      parts: validParts,
     });
   };
 
+  const addPart = () => setParts([...parts, { partName: "", quantity: 1, cost: "0" }]);
+  const removePart = (i: number) => setParts(parts.filter((_, idx) => idx !== i));
+  const updatePart = (i: number, field: string, value: string | number) => {
+    const updated = [...parts];
+    updated[i] = { ...updated[i], [field]: value };
+    setParts(updated);
+  };
+
+  const totalPartsCost = parts.reduce((s, p) => s + (parseFloat(p.cost) || 0), 0);
+
   if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <div className="container py-20 text-center">
-          <Coffee className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Login Required</h2>
-          <p className="text-gray-500 mb-6">You need to be logged in to create service records.</p>
-          <Link href="/login">
-            <Button className="bg-goldwing-gold hover:bg-goldwing-gold-dark text-white">
-              Login
-            </Button>
-          </Link>
-        </div>
-      </div>
-    );
+    navigate("/login");
+    return null;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-beige">
       <Header />
       <main className="container py-8">
         <div className="max-w-3xl mx-auto">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">New Service Record</h2>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Machine Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Machine Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="brand">Brand</Label>
-                    <Select value={formData.brand} onValueChange={(v) => setFormData({ ...formData, brand: v as any })}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="DeLonghi">DeLonghi</SelectItem>
-                        <SelectItem value="Kenwood">Kenwood</SelectItem>
-                        <SelectItem value="Braun">Braun</SelectItem>
-                        <SelectItem value="NutriBullet">NutriBullet</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="modelName">Model Name</Label>
-                    <Input
-                      id="modelName"
-                      value={formData.modelName}
-                      onChange={(e) => setFormData({ ...formData, modelName: e.target.value })}
-                      placeholder="e.g., ECAM 23.460"
-                      required
-                    />
-                  </div>
+          <form onSubmit={handleSubmit} className="space-y-8">
+            {/* Section 1: Product Information */}
+            <section className="bg-white rounded-xl border border-gray-200 p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 rounded-full bg-goldwing-gold text-white flex items-center justify-center font-bold text-sm">1</div>
+                <h3 className="text-lg font-bold text-gray-900">{sections[0].title}</h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label className="mb-1.5">Brand *</Label>
+                  <Select value={formData.brand} onValueChange={(v) => setFormData({ ...formData, brand: v })}>
+                    <SelectTrigger><SelectValue placeholder="Select brand" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="DeLonghi">DeLonghi</SelectItem>
+                      <SelectItem value="Kenwood">Kenwood</SelectItem>
+                      <SelectItem value="Braun">Braun</SelectItem>
+                      <SelectItem value="NutriBullet">NutriBullet</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="location">Location</Label>
-                    <Select value={formData.location} onValueChange={(v) => setFormData({ ...formData, location: v as any })}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Myanmar">Myanmar</SelectItem>
-                        <SelectItem value="Overseas">Overseas</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="technicianName">Technician</Label>
-                    <Input
-                      id="technicianName"
-                      value={formData.technicianName}
-                      onChange={(e) => setFormData({ ...formData, technicianName: e.target.value })}
-                      placeholder="Technician name"
-                    />
-                  </div>
+                <div>
+                  <Label className="mb-1.5">Model Name</Label>
+                  <Input value={formData.modelName} onChange={(e) => setFormData({ ...formData, modelName: e.target.value })} placeholder="e.g., EC685M" />
                 </div>
-              </CardContent>
-            </Card>
+                <div>
+                  <Label className="mb-1.5">Serial Number</Label>
+                  <Input value={formData.serialNo} onChange={(e) => setFormData({ ...formData, serialNo: e.target.value })} placeholder="Product serial number" />
+                </div>
+                <div>
+                  <Label className="mb-1.5">Use In Place</Label>
+                  <Input value={formData.useInPlace} onChange={(e) => setFormData({ ...formData, useInPlace: e.target.value })} placeholder="Where the product is used" />
+                </div>
+                <div>
+                  <Label className="mb-1.5">Purchase Place</Label>
+                  <Select value={formData.purchasePlace} onValueChange={(v) => setFormData({ ...formData, purchasePlace: v })}>
+                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Myanmar">Myanmar</SelectItem>
+                      <SelectItem value="Overseas">Overseas</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </section>
 
-            {/* Customer Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Customer Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            {/* Section 2: Customer Information */}
+            <section className="bg-white rounded-xl border border-gray-200 p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 rounded-full bg-goldwing-gold text-white flex items-center justify-center font-bold text-sm">2</div>
+                <h3 className="text-lg font-bold text-gray-900">{sections[1].title}</h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label className="mb-1.5">Customer Name *</Label>
+                  <Input value={formData.customerName} onChange={(e) => setFormData({ ...formData, customerName: e.target.value })} placeholder="Full name" />
+                </div>
+                <div>
+                  <Label className="mb-1.5">Phone Number</Label>
+                  <Input value={formData.customerPhone} onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })} placeholder="09-xxx-xxx-xxx" />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label className="mb-1.5">Address</Label>
+                  <Input value={formData.customerAddress} onChange={(e) => setFormData({ ...formData, customerAddress: e.target.value })} placeholder="Customer address" />
+                </div>
+              </div>
+            </section>
+
+            {/* Section 3: Issues & Service */}
+            <section className="bg-white rounded-xl border border-gray-200 p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 rounded-full bg-goldwing-gold text-white flex items-center justify-center font-bold text-sm">3</div>
+                <h3 className="text-lg font-bold text-gray-900">{sections[2].title}</h3>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <Label className="mb-1.5">Service Date *</Label>
+                  <Input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="customerName">Customer Name</Label>
-                    <Input
-                      id="customerName"
-                      value={formData.customerName}
-                      onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
-                      placeholder="Customer full name"
-                      required
-                    />
+                    <Label className="mb-1.5">In Date</Label>
+                    <Input type="date" value={formData.inDate} onChange={(e) => setFormData({ ...formData, inDate: e.target.value })} />
                   </div>
                   <div>
-                    <Label htmlFor="customerPhone">Phone</Label>
-                    <Input
-                      id="customerPhone"
-                      value={formData.customerPhone}
-                      onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })}
-                      placeholder="Phone number"
-                    />
+                    <Label className="mb-1.5">Out Date</Label>
+                    <Input type="date" value={formData.outDate} onChange={(e) => setFormData({ ...formData, outDate: e.target.value })} />
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="customerEmail">Email</Label>
-                  <Input
-                    id="customerEmail"
-                    type="email"
-                    value={formData.customerEmail}
-                    onChange={(e) => setFormData({ ...formData, customerEmail: e.target.value })}
-                    placeholder="Email address"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Service Details */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Service Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="serviceDate">Service Date</Label>
-                    <Input
-                      id="serviceDate"
-                      type="date"
-                      value={formData.serviceDate}
-                      onChange={(e) => setFormData({ ...formData, serviceDate: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="nextServiceDate">Next Service Date</Label>
-                    <Input
-                      id="nextServiceDate"
-                      type="date"
-                      value={formData.nextServiceDate}
-                      onChange={(e) => setFormData({ ...formData, nextServiceDate: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label className="mb-2 block">Service Checklist</Label>
+                  <Label className="mb-2">Machine Checklist</Label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        checked={formData.coffeeCleaning}
-                        onCheckedChange={(v) => setFormData({ ...formData, coffeeCleaning: !!v })}
-                        id="coffeeCleaning"
-                      />
-                      <Label htmlFor="coffeeCleaning" className="text-sm cursor-pointer">Coffee</Label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        checked={formData.waterCleaning}
-                        onCheckedChange={(v) => setFormData({ ...formData, waterCleaning: !!v })}
-                        id="waterCleaning"
-                      />
-                      <Label htmlFor="waterCleaning" className="text-sm cursor-pointer">Water</Label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        checked={formData.descaling}
-                        onCheckedChange={(v) => setFormData({ ...formData, descaling: !!v })}
-                        id="descaling"
-                      />
-                      <Label htmlFor="descaling" className="text-sm cursor-pointer">Descaling</Label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        checked={formData.milkCleaning}
-                        onCheckedChange={(v) => setFormData({ ...formData, milkCleaning: !!v })}
-                        id="milkCleaning"
-                      />
-                      <Label htmlFor="milkCleaning" className="text-sm cursor-pointer">Milk Clean</Label>
-                    </div>
+                    {(["coffeeCleaning", "waterCleaning", "descaling", "milkCleaning"] as const).map((key) => (
+                      <label key={key} className="flex items-center gap-2 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                        <input type="checkbox" checked={formData[key]} onChange={(e) => setFormData({ ...formData, [key]: e.target.checked })} className="w-4 h-4 rounded accent-goldwing-gold" />
+                        <span className="text-sm text-gray-700">
+                          {key === "coffeeCleaning" && "Coffee"}
+                          {key === "waterCleaning" && "Water"}
+                          {key === "descaling" && "Descaling"}
+                          {key === "milkCleaning" && "Milk Clean"}
+                        </span>
+                      </label>
+                    ))}
                   </div>
                 </div>
-
                 <div>
-                  <Label htmlFor="notes">Notes</Label>
-                  <Textarea
-                    id="notes"
-                    value={formData.notes}
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    placeholder="Additional notes about the service..."
-                    rows={3}
-                  />
+                  <Label className="mb-1.5">Technical Issues</Label>
+                  <Textarea value={formData.technicalIssues} onChange={(e) => setFormData({ ...formData, technicalIssues: e.target.value })} placeholder="Describe the technical issues..." rows={3} />
                 </div>
-              </CardContent>
-            </Card>
+                <div>
+                  <Label className="mb-1.5">Repaired By</Label>
+                  <Input value={formData.repairedBy} onChange={(e) => setFormData({ ...formData, repairedBy: e.target.value })} placeholder="Technician name" />
+                </div>
+              </div>
+            </section>
 
-            {/* Parts & Costs */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Parts & Costs</CardTitle>
-                  <Button type="button" variant="outline" size="sm" onClick={addPart}>
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add Part
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {parts.map((part, index) => (
-                  <div key={index} className="grid grid-cols-12 gap-2 items-end p-3 bg-gray-50 rounded-lg">
-                    <div className="col-span-12 sm:col-span-3">
-                      <Label className="text-xs">Part Name</Label>
-                      <Input
-                        value={part.partName}
-                        onChange={(e) => updatePart(index, "partName", e.target.value)}
-                        placeholder="Part name"
-                      />
-                    </div>
-                    <div className="col-span-12 sm:col-span-3">
-                      <Label className="text-xs">Description</Label>
-                      <Input
-                        value={part.partDescription}
-                        onChange={(e) => updatePart(index, "partDescription", e.target.value)}
-                        placeholder="Description"
-                      />
-                    </div>
-                    <div className="col-span-4 sm:col-span-2">
-                      <Label className="text-xs">Qty</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        value={part.quantity}
-                        onChange={(e) => updatePart(index, "quantity", parseInt(e.target.value) || 1)}
-                      />
-                    </div>
-                    <div className="col-span-4 sm:col-span-2">
-                      <Label className="text-xs">Unit Price</Label>
-                      <Input
-                        value={part.unitPrice}
-                        onChange={(e) => updatePart(index, "unitPrice", e.target.value)}
-                        placeholder="0.00"
-                      />
-                    </div>
-                    <div className="col-span-3 sm:col-span-1">
-                      <Label className="text-xs">Total</Label>
-                      <Input value={`$${part.totalCost || "0.00"}`} readOnly className="bg-gray-100" />
-                    </div>
-                    <div className="col-span-1">
-                      {parts.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removePart(index)}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
+            {/* Section 4: Parts */}
+            <section className="bg-white rounded-xl border border-gray-200 p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 rounded-full bg-goldwing-gold text-white flex items-center justify-center font-bold text-sm">4</div>
+                <h3 className="text-lg font-bold text-gray-900">{sections[3].title}</h3>
+                <button type="button" onClick={addPart} className="ml-auto inline-flex items-center gap-1 text-sm text-goldwing-gold hover:text-goldwing-gold-dark font-medium">
+                  <Plus className="w-4 h-4" /> Add Part
+                </button>
+              </div>
+              <div className="space-y-3">
+                {parts.map((part, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <Input placeholder="Part name" value={part.partName} onChange={(e) => updatePart(i, "partName", e.target.value)} className="flex-1" />
+                    <Input type="number" placeholder="Qty" value={part.quantity} onChange={(e) => updatePart(i, "quantity", parseInt(e.target.value) || 1)} className="w-20" min={1} />
+                    <Input placeholder="Cost (MMK)" value={part.cost} onChange={(e) => updatePart(i, "cost", e.target.value)} className="w-32" />
+                    {parts.length > 1 && (
+                      <button type="button" onClick={() => removePart(i)} className="text-red-500 hover:text-red-700 p-1">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 ))}
-              </CardContent>
-            </Card>
+              </div>
+            </section>
 
-            {/* Submit */}
+            {/* Section 5: Repair Summary */}
+            <section className="bg-white rounded-xl border border-gray-200 p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 rounded-full bg-goldwing-gold text-white flex items-center justify-center font-bold text-sm">5</div>
+                <h3 className="text-lg font-bold text-gray-900">{sections[4].title}</h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label className="mb-1.5">Service Charges (MMK)</Label>
+                  <Input value={formData.serviceCharges} onChange={(e) => setFormData({ ...formData, serviceCharges: e.target.value })} placeholder="0" type="number" min="0" />
+                </div>
+                <div>
+                  <Label className="mb-1.5">Total Parts Cost</Label>
+                  <div className="py-2.5 px-3 bg-gray-50 rounded-lg border text-sm font-medium text-gray-700">{totalPartsCost.toLocaleString()} MMK</div>
+                </div>
+                <div>
+                  <Label className="mb-1.5">Grand Total</Label>
+                  <div className="py-2.5 px-3 bg-goldwing-gold/10 rounded-lg border border-goldwing-gold/30 text-sm font-bold text-goldwing-gold-dark">
+                    {(totalPartsCost + parseFloat(formData.serviceCharges || "0")).toLocaleString()} MMK
+                  </div>
+                </div>
+              </div>
+            </section>
+
             <div className="flex justify-end gap-3">
-              <Link href="/">
-                <Button type="button" variant="outline">Cancel</Button>
-              </Link>
-              <Button
-                type="submit"
-                className="bg-goldwing-gold hover:bg-goldwing-gold-dark text-white"
-                disabled={createMutation.isPending}
-              >
+              <Link href="/" className="inline-flex"><Button type="button" variant="outline">Cancel</Button></Link>
+              <Button type="submit" className="bg-goldwing-gold hover:bg-goldwing-gold-dark text-white px-8 py-3 font-medium" disabled={createMutation.isPending}>
                 {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Create Record
+                {createMutation.isPending ? "Saving..." : "Save Record"}
               </Button>
             </div>
           </form>
         </div>
       </main>
+      <footer className="text-center py-6 text-sm text-gray-400">Made with ZLP</footer>
     </div>
   );
 }

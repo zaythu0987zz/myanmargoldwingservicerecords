@@ -185,8 +185,8 @@ export async function getAllServiceRecords(params?: {
     conditions.push(eq(serviceRecords.brand, params.brand as any));
   }
 
-  if (params?.location && params.location !== "All") {
-    conditions.push(eq(serviceRecords.location, params.location as any));
+  if (params?.purchasePlace && params.purchasePlace !== "All") {
+    conditions.push(eq(serviceRecords.purchasePlace, params.purchasePlace as any));
   }
 
   if (params?.dateFrom) {
@@ -246,9 +246,7 @@ export async function updateServiceRecord(
           .update(serviceParts)
           .set({
             partName: part.partName,
-            partDescription: part.partDescription,
             quantity: part.quantity,
-            unitPrice: part.unitPrice,
             totalCost: part.totalCost,
           })
           .where(eq(serviceParts.id, part.id));
