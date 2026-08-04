@@ -239,7 +239,6 @@ export const appRouter = router({
           totalCost: totalCost.toString(),
         }, {
           upsert: input.parts.map((p) => ({
-            id: p.id,
             recordId: input.id,
             partName: p.partName,
             quantity: p.quantity,

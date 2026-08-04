@@ -233,27 +233,20 @@ export async function updateServiceRecord(
     })
     .where(eq(serviceRecords.id, id));
 
-  // Delete parts
-  if (partsData.delete && partsData.delete.length > 0) {
-    await db.delete(serviceParts).where(sql`${serviceParts.id} IN (${sql.join(partsData.delete, sql`, `)})`);
-  }
+  // Delete ALL existing parts for this record
+  await db.delete(serviceParts).where(eq(serviceParts.recordId, id));
 
-  // Upsert parts
+  // Insert all parts fresh (no upsert needed since we deleted all)
   if (partsData.upsert.length > 0) {
-    for (const part of partsData.upsert) {
-      if (part.id) {
-        await db
-          .update(serviceParts)
-          .set({
-            partName: part.partName,
-            quantity: part.quantity,
-            totalCost: part.totalCost,
-          })
-          .where(eq(serviceParts.id, part.id));
-      } else {
-        await db.insert(serviceParts).values(part);
-      }
-    }
+    // Insert in batch for better performance
+    await db.insert(serviceParts).values(
+      partsData.upsert.map((p) => ({
+        recordId: id,
+        partName: p.partName,
+        quantity: p.quantity,
+        totalCost: p.totalCost,
+      }))
+    );
   }
 
   return getServiceRecordById(id);

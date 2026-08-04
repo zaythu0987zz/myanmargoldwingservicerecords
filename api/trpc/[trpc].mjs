@@ -74589,21 +74589,16 @@ async function updateServiceRecord(id, record2, partsData) {
     ...record2,
     updatedAt: /* @__PURE__ */ new Date()
   }).where(eq(serviceRecords.id, id));
-  if (partsData.delete && partsData.delete.length > 0) {
-    await db.delete(serviceParts).where(sql`${serviceParts.id} IN (${sql.join(partsData.delete, sql`, `)})`);
-  }
+  await db.delete(serviceParts).where(eq(serviceParts.recordId, id));
   if (partsData.upsert.length > 0) {
-    for (const part of partsData.upsert) {
-      if (part.id) {
-        await db.update(serviceParts).set({
-          partName: part.partName,
-          quantity: part.quantity,
-          totalCost: part.totalCost
-        }).where(eq(serviceParts.id, part.id));
-      } else {
-        await db.insert(serviceParts).values(part);
-      }
-    }
+    await db.insert(serviceParts).values(
+      partsData.upsert.map((p) => ({
+        recordId: id,
+        partName: p.partName,
+        quantity: p.quantity,
+        totalCost: p.totalCost
+      }))
+    );
   }
   return getServiceRecordById(id);
 }
@@ -74848,7 +74843,6 @@ var appRouter = router({
         totalCost: totalCost.toString()
       }, {
         upsert: input.parts.map((p) => ({
-          id: p.id,
           recordId: input.id,
           partName: p.partName,
           quantity: p.quantity,
