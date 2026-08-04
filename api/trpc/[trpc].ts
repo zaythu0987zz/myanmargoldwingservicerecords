@@ -2,34 +2,22 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import express from "express";
 import cookieParser from "cookie-parser";
 import superjson from "superjson";
+import { appRouter } from "../../server/routers";
+import { createContext } from "../../server/_core/context";
 
-// Dynamic import to handle ESM/CJS compatibility
-async function getRouter() {
-  const { appRouter } = await import("../../server/routers");
-  return appRouter;
-}
-
-async function getCreateContext() {
-  const { createContext } = await import("../../server/_core/context");
-  return createContext;
-}
-
-// Handle the request
+// Handle the request - Vercel serverless function
 export default async function handler(req: any, res: any) {
   try {
-    const [router, createContext] = await Promise.all([getRouter(), getCreateContext()]);
-
     // Create a minimal Express app for tRPC
     const app = express();
     app.use(express.json());
     app.use(cookieParser());
 
     // Mount tRPC middleware at root with superjson transformer
-    // This MUST match the client-side httpBatchLink transformer
     app.use(
       "/",
       createExpressMiddleware({
-        router,
+        router: appRouter,
         createContext,
         transformer: superjson,
       })

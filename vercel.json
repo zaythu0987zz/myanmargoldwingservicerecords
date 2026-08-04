@@ -5,8 +5,8 @@
   "outputDirectory": "dist/public",
   "functions": {
     "api/trpc/[trpc].ts": {
-      "memory": 256,
-      "maxDuration": 10
+      "memory": 512,
+      "maxDuration": 15
     }
   },
   "headers": [
@@ -20,17 +20,14 @@
       ]
     }
   ],
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/trpc/(.*)",
-      "dest": "/api/trpc/[trpc].ts?_req=$1"
+      "source": "/api/trpc/:path*",
+      "destination": "/api/trpc/[trpc]"
     },
     {
-      "handle": "filesystem"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
