@@ -74,9 +74,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (pin: string): Promise<boolean> => {
     try {
-      await loginMutation.mutateAsync({ pin });
+      await loginMutation.mutateAsync({ pin: String(pin) });
       return true;
-    } catch {
+    } catch (err: any) {
+      // If the error is a Zod validation error, it means the API isn't reachable
+      // and the SPA rewrite is returning HTML instead of JSON
+      const msg = err?.message || "Login failed";
+      if (msg.includes("did not match") || msg.includes("expected pattern")) {
+        toast.error("Authentication service unavailable. Please try again.");
+      } else if (msg.includes("Invalid PIN")) {
+        toast.error("Invalid PIN. Please try again.");
+      } else {
+        toast.error(msg);
+      }
       return false;
     }
   }, [loginMutation]);

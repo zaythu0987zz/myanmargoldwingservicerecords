@@ -3,10 +3,21 @@
   "installCommand": "npm install --legacy-peer-deps",
   "buildCommand": "npm run build:client",
   "outputDirectory": "dist/public",
+  "framework": null,
+  "functions": {
+    "api/trpc/[trpc].ts": {
+      "runtime": "@vercel/node",
+      "memory": 1024
+    }
+  },
   "rewrites": [
     {
+      "source": "/api/trpc/:path*",
+      "destination": "/api/trpc/:path*"
+    },
+    {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": "/$1"
     }
   ]
 }

@@ -26,7 +26,7 @@ export const appRouter = router({
     me: publicProcedure.query((opts) => opts.ctx.user),
 
     loginPin: publicProcedure
-      .input(z.object({ pin: z.string().min(1) }))
+      .input(z.object({ pin: z.string() }))
       .mutation(async ({ input, ctx }) => {
         if (input.pin !== VALID_PIN) {
           throw new Error("Invalid PIN. Please try again.");
