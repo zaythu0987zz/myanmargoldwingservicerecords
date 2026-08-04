@@ -23,7 +23,7 @@
   "rewrites": [
     {
       "source": "/api/trpc/:path*",
-      "destination": "/api/trpc/[trpc]"
+      "destination": "/api/trpc/[trpc].ts"
     },
     {
       "source": "/(.*)",

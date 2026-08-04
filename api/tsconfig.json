@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ES2022",
+    "noEmit": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "allowSyntheticDefaultImports": true,
+    "outDir": "../dist/api",
+    "rootDir": "..",
+    "paths": {
+      "@/*": ["../client/src/*"],
+      "@shared/*": ["../shared/*"]
+    }
+  },
+  "include": [
+    "./**/*",
+    "../server/**/*",
+    "../shared/**/*",
+    "../drizzle/**/*"
+  ]
+}
