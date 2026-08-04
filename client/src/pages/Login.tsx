@@ -38,7 +38,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-beige">
+    <div className="min-h-screen bg-[#faf6f1]">
       <Header />
 
       <div className="container py-12 flex items-center justify-center">
@@ -46,7 +46,7 @@ export default function Login() {
           {/* Login Card */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             {/* Orange header bar */}
-            <div className="h-2 bg-goldwing-gold" />
+            <div className="h-2 bg-[#e85d04]" />
 
             <div className="p-8">
               <h2 className="text-xl font-bold text-gray-900 mb-6 text-center">Owner Login</h2>
@@ -70,7 +70,7 @@ export default function Login() {
 
                 <Button
                   type="submit"
-                  className="w-full bg-goldwing-gold hover:bg-goldwing-gold-dark text-white font-medium py-3"
+                  className="w-full bg-[#e85d04] hover:bg-[#d4520a] text-white font-semibold py-3"
                   disabled={!pin.trim() || isLoading}
                 >
                   {isLoading ? "Logging in..." : "Login"}

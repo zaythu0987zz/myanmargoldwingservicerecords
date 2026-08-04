@@ -42,6 +42,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/login" component={Login} />
       <Route path="/new" component={NewRecord} />
+      <Route path="/form" component={NewRecord} />
       <Route path="/record/:id" component={RecordDetail} />
       <Route path="/edit/:id" component={EditRecord} />
       <Route path="/history" component={History} />

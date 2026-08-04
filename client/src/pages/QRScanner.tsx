@@ -43,12 +43,12 @@ export default function QRScanner() {
       <main className="container py-12">
         <div className="max-w-md mx-auto">
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="h-2 bg-goldwing-gold" />
+            <div className="h-2 bg-[#e85d04]" />
 
             <div className="p-8">
               <div className="flex items-center justify-center mb-6">
-                <div className="w-16 h-16 rounded-xl bg-goldwing-gold/10 flex items-center justify-center">
-                  <QrCode className="w-8 h-8 text-goldwing-gold" />
+                <div className="w-16 h-16 rounded-xl bg-[#e85d04]/10 flex items-center justify-center">
+                  <QrCode className="w-8 h-8 text-[#e85d04]" />
                 </div>
               </div>
 
@@ -75,7 +75,7 @@ export default function QRScanner() {
 
                 <Button
                   onClick={handleLookup}
-                  className="w-full bg-goldwing-gold hover:bg-goldwing-gold-dark text-white font-medium py-3"
+                  className="w-full bg-[#e85d04] hover:bg-[#e85d04]-dark text-white font-medium py-3"
                   disabled={!qrCode.trim() || isSearching}
                 >
                   {isSearching ? (
@@ -90,7 +90,7 @@ export default function QRScanner() {
               <div className="border-t border-gray-200 mt-6 pt-6 text-center">
                 <p className="text-sm text-gray-500">
                   Or browse all records{" "}
-                  <Link href="/history" className="text-goldwing-gold hover:underline font-medium">
+                  <Link href="/history" className="text-[#e85d04] hover:underline font-medium">
                     here
                   </Link>
                 </p>

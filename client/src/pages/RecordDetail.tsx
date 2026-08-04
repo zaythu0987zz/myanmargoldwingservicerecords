@@ -32,7 +32,7 @@ export default function RecordDetail() {
       <div className="min-h-screen bg-beige">
         <Header />
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-goldwing-gold" />
+          <Loader2 className="w-8 h-8 animate-spin text-[#e85d04]" />
         </div>
       </div>
     );
@@ -70,7 +70,7 @@ export default function RecordDetail() {
               <h2 className="text-2xl font-bold text-gray-900">{record.modelName || "Service Record"}</h2>
               <p className="text-gray-500">{record.brand}</p>
             </div>
-            <Badge className="bg-goldwing-gold text-white font-mono">{record.qrCode}</Badge>
+            <Badge className="bg-[#e85d04] text-white font-mono">{record.qrCode}</Badge>
           </div>
 
           {/* QR Code */}
@@ -78,7 +78,7 @@ export default function RecordDetail() {
             <div className="flex items-center justify-center py-6">
               <div className="text-center">
                 <div className="w-32 h-32 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <QrCode className="w-16 h-16 text-goldwing-gold" />
+                  <QrCode className="w-16 h-16 text-[#e85d04]" />
                 </div>
                 <p className="text-sm text-gray-500 font-mono">{record.qrCode}</p>
               </div>
@@ -88,7 +88,7 @@ export default function RecordDetail() {
           {/* Section 1: Product Information */}
           <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 rounded-full bg-goldwing-gold text-white flex items-center justify-center font-bold text-sm">1</div>
+              <div className="w-8 h-8 rounded-full bg-[#e85d04] text-white flex items-center justify-center font-bold text-sm">1</div>
               <h3 className="text-lg font-bold text-gray-900">Product Information</h3>
             </div>
             <div className="grid grid-cols-2 gap-4 text-sm">
@@ -107,7 +107,7 @@ export default function RecordDetail() {
           {/* Section 2: Customer Information */}
           <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 rounded-full bg-goldwing-gold text-white flex items-center justify-center font-bold text-sm">2</div>
+              <div className="w-8 h-8 rounded-full bg-[#e85d04] text-white flex items-center justify-center font-bold text-sm">2</div>
               <h3 className="text-lg font-bold text-gray-900">Customer Information</h3>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
@@ -120,7 +120,7 @@ export default function RecordDetail() {
           {/* Section 3: Issues & Service */}
           <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 rounded-full bg-goldwing-gold text-white flex items-center justify-center font-bold text-sm">3</div>
+              <div className="w-8 h-8 rounded-full bg-[#e85d04] text-white flex items-center justify-center font-bold text-sm">3</div>
               <h3 className="text-lg font-bold text-gray-900">Issues & Service</h3>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm mb-4">
@@ -160,7 +160,7 @@ export default function RecordDetail() {
           {record.parts && record.parts.length > 0 && (
             <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-8 h-8 rounded-full bg-goldwing-gold text-white flex items-center justify-center font-bold text-sm">4</div>
+                <div className="w-8 h-8 rounded-full bg-[#e85d04] text-white flex items-center justify-center font-bold text-sm">4</div>
                 <h3 className="text-lg font-bold text-gray-900">Parts</h3>
               </div>
               <table className="w-full text-sm">
@@ -187,7 +187,7 @@ export default function RecordDetail() {
           {/* Section 5: Repair Summary */}
           <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 rounded-full bg-goldwing-gold text-white flex items-center justify-center font-bold text-sm">5</div>
+              <div className="w-8 h-8 rounded-full bg-[#e85d04] text-white flex items-center justify-center font-bold text-sm">5</div>
               <h3 className="text-lg font-bold text-gray-900">Repair Summary</h3>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -201,7 +201,7 @@ export default function RecordDetail() {
               </div>
               <div>
                 <span className="text-sm text-gray-500 block mb-1">Grand Total</span>
-                <span className="text-lg font-bold text-goldwing-gold">{grandTotal.toLocaleString()} MMK</span>
+                <span className="text-lg font-bold text-[#e85d04]">{grandTotal.toLocaleString()} MMK</span>
               </div>
             </div>
           </div>

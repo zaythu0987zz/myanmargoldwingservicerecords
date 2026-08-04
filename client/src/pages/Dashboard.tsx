@@ -20,7 +20,7 @@ export default function Dashboard() {
         <div className="container py-20 text-center">
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
           <p className="text-gray-500 mb-6">Admin access required.</p>
-          <Link href="/"><a className="text-goldwing-gold hover:underline">Go Home</a></Link>
+          <Link href="/"><a className="text-[#e85d04] hover:underline">Go Home</a></Link>
         </div>
       </div>
     );

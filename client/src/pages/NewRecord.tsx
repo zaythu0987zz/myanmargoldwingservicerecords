@@ -121,7 +121,7 @@ export default function NewRecord() {
             {/* Section 1: Product Information */}
             <section className="bg-white rounded-xl border border-gray-200 p-6">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 rounded-full bg-goldwing-gold text-white flex items-center justify-center font-bold text-sm">1</div>
+                <div className="w-8 h-8 rounded-full bg-[#e85d04] text-white flex items-center justify-center font-bold text-sm">1</div>
                 <h3 className="text-lg font-bold text-gray-900">{sections[0].title}</h3>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -166,7 +166,7 @@ export default function NewRecord() {
             {/* Section 2: Customer Information */}
             <section className="bg-white rounded-xl border border-gray-200 p-6">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 rounded-full bg-goldwing-gold text-white flex items-center justify-center font-bold text-sm">2</div>
+                <div className="w-8 h-8 rounded-full bg-[#e85d04] text-white flex items-center justify-center font-bold text-sm">2</div>
                 <h3 className="text-lg font-bold text-gray-900">{sections[1].title}</h3>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -188,7 +188,7 @@ export default function NewRecord() {
             {/* Section 3: Issues & Service */}
             <section className="bg-white rounded-xl border border-gray-200 p-6">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 rounded-full bg-goldwing-gold text-white flex items-center justify-center font-bold text-sm">3</div>
+                <div className="w-8 h-8 rounded-full bg-[#e85d04] text-white flex items-center justify-center font-bold text-sm">3</div>
                 <h3 className="text-lg font-bold text-gray-900">{sections[2].title}</h3>
               </div>
               <div className="space-y-4">
@@ -211,7 +211,7 @@ export default function NewRecord() {
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {(["coffeeCleaning", "waterCleaning", "descaling", "milkCleaning"] as const).map((key) => (
                       <label key={key} className="flex items-center gap-2 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                        <input type="checkbox" checked={formData[key]} onChange={(e) => setFormData({ ...formData, [key]: e.target.checked })} className="w-4 h-4 rounded accent-goldwing-gold" />
+                        <input type="checkbox" checked={formData[key]} onChange={(e) => setFormData({ ...formData, [key]: e.target.checked })} className="w-4 h-4 rounded accent-[#e85d04]" />
                         <span className="text-sm text-gray-700">
                           {key === "coffeeCleaning" && "Coffee"}
                           {key === "waterCleaning" && "Water"}
@@ -236,9 +236,9 @@ export default function NewRecord() {
             {/* Section 4: Parts */}
             <section className="bg-white rounded-xl border border-gray-200 p-6">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 rounded-full bg-goldwing-gold text-white flex items-center justify-center font-bold text-sm">4</div>
+                <div className="w-8 h-8 rounded-full bg-[#e85d04] text-white flex items-center justify-center font-bold text-sm">4</div>
                 <h3 className="text-lg font-bold text-gray-900">{sections[3].title}</h3>
-                <button type="button" onClick={addPart} className="ml-auto inline-flex items-center gap-1 text-sm text-goldwing-gold hover:text-goldwing-gold-dark font-medium">
+                <button type="button" onClick={addPart} className="ml-auto inline-flex items-center gap-1 text-sm text-[#e85d04] hover:text-[#e85d04]-dark font-medium">
                   <Plus className="w-4 h-4" /> Add Part
                 </button>
               </div>
@@ -261,7 +261,7 @@ export default function NewRecord() {
             {/* Section 5: Repair Summary */}
             <section className="bg-white rounded-xl border border-gray-200 p-6">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 rounded-full bg-goldwing-gold text-white flex items-center justify-center font-bold text-sm">5</div>
+                <div className="w-8 h-8 rounded-full bg-[#e85d04] text-white flex items-center justify-center font-bold text-sm">5</div>
                 <h3 className="text-lg font-bold text-gray-900">{sections[4].title}</h3>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -275,7 +275,7 @@ export default function NewRecord() {
                 </div>
                 <div>
                   <Label className="mb-1.5">Grand Total</Label>
-                  <div className="py-2.5 px-3 bg-goldwing-gold/10 rounded-lg border border-goldwing-gold/30 text-sm font-bold text-goldwing-gold-dark">
+                  <div className="py-2.5 px-3 bg-[#e85d04]/10 rounded-lg border border-[#e85d04]/30 text-sm font-bold text-[#e85d04]-dark">
                     {(totalPartsCost + parseFloat(formData.serviceCharges || "0")).toLocaleString()} MMK
                   </div>
                 </div>
@@ -284,7 +284,7 @@ export default function NewRecord() {
 
             <div className="flex justify-end gap-3">
               <Link href="/" className="inline-flex"><Button type="button" variant="outline">Cancel</Button></Link>
-              <Button type="submit" className="bg-goldwing-gold hover:bg-goldwing-gold-dark text-white px-8 py-3 font-medium" disabled={createMutation.isPending}>
+              <Button type="submit" className="bg-[#e85d04] hover:bg-[#e85d04]-dark text-white px-8 py-3 font-medium" disabled={createMutation.isPending}>
                 {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 {createMutation.isPending ? "Saving..." : "Save Record"}
               </Button>
