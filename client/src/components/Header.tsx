@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
-import { LogOut } from "lucide-react";
+import { LogOut, Plus } from "lucide-react";
 
 export default function Header() {
   const { isAuthenticated, logout } = useAuth();
@@ -27,12 +27,21 @@ export default function Header() {
               <span>Logout</span>
             </button>
           ) : (
-            <Link
-              href="/login"
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#e85d04] text-white text-sm font-semibold rounded-lg hover:bg-[#d4520a] transition-colors"
-            >
-              Owner Login
-            </Link>
+            <>
+              <Link
+                href="/new"
+                className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Create Record
+              </Link>
+              <Link
+                href="/login"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#e85d04] text-white text-sm font-semibold rounded-lg hover:bg-[#d4520a] transition-colors"
+              >
+                Owner Login
+              </Link>
+            </>
           )}
         </div>
       </div>

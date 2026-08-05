@@ -52,15 +52,12 @@ export default function History() {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-3 mb-6">
-          {isAuthenticated && (
-            <button
-              onClick={() => navigate("/new")}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[#e85d04] text-white rounded-lg text-sm font-semibold hover:bg-[#d4520a] transition-colors"
-            >
+          <Link href="/new">
+            <button className="inline-flex items-center gap-2 px-4 py-2 bg-[#e85d04] text-white rounded-lg text-sm font-semibold hover:bg-[#d4520a] transition-colors">
               <Plus className="w-4 h-4" />
               New Record
             </button>
-          )}
+          </Link>
           <Link href="/qr-scanner">
             <button className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
               <QrCode className="w-4 h-4" />
@@ -69,7 +66,7 @@ export default function History() {
           </Link>
           {!isAuthenticated && (
             <Link href="/login">
-              <button className="inline-flex items-center gap-2 px-4 py-2 bg-[#e85d04] text-white rounded-lg text-sm font-semibold hover:bg-[#d4520a] transition-colors">
+              <button className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-50 transition-colors">
                 Owner Login
               </button>
             </Link>

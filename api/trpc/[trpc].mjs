@@ -74708,8 +74708,8 @@ var appRouter = router({
     getByQrCode: publicProcedure.input(external_exports.object({ qrCode: external_exports.string() })).query(async ({ input }) => {
       return getServiceRecordByQrCode(input.qrCode);
     }),
-    // Protected: Create a new service record
-    create: protectedProcedure.input(
+    // Public: Create a new service record (no login required)
+    create: publicProcedure.input(
       external_exports.object({
         brand: external_exports.enum(["DeLonghi", "Kenwood", "Braun", "NutriBullet", "Other"]),
         modelName: external_exports.string().min(1),

@@ -92,8 +92,8 @@ export const appRouter = router({
         return getServiceRecordByQrCode(input.qrCode);
       }),
 
-    // Protected: Create a new service record
-    create: protectedProcedure
+    // Public: Create a new service record (no login required)
+    create: publicProcedure
       .input(
         z.object({
           brand: z.enum(["DeLonghi", "Kenwood", "Braun", "NutriBullet", "Other"]),

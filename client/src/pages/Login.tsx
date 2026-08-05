@@ -49,7 +49,8 @@ export default function Login() {
             <div className="h-2 bg-[#e85d04]" />
 
             <div className="p-8">
-              <h2 className="text-xl font-bold text-gray-900 mb-6 text-center">Owner Login</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-2 text-center">Owner Login</h2>
+              <p className="text-sm text-gray-500 text-center mb-6">For editing, deleting, and managing service records</p>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
@@ -77,11 +78,11 @@ export default function Login() {
                 </Button>
               </form>
 
-              <div className="border-t border-gray-200 mt-6 pt-6">
-                <p className="text-sm text-gray-500 text-center mb-3">Want to view service records?</p>
-                <Link href="/history">
+              <div className="border-t border-gray-200 mt-6 pt-6 space-y-3">
+                <p className="text-sm text-gray-500 text-center">Need to create a service record?</p>
+                <Link href="/new">
                   <Button variant="outline" className="w-full">
-                    View Records (Public)
+                    Create New Record (Public)
                   </Button>
                 </Link>
               </div>

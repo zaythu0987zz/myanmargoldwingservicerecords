@@ -70,8 +70,8 @@ export default function Home() {
                 <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
                   <LogIn className="w-6 h-6 text-green-600" />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900">Logged In</h3>
-                <p className="text-sm text-gray-500 leading-relaxed">You have full access to create and manage records</p>
+                <h3 className="text-lg font-bold text-gray-900">Owner Access</h3>
+                <p className="text-sm text-gray-500 leading-relaxed">Full access to edit, delete, and manage records</p>
               </div>
             ) : (
               <Link href="/login">
@@ -80,7 +80,7 @@ export default function Home() {
                     <LogIn className="w-6 h-6 text-[#e85d04]" />
                   </div>
                   <h3 className="text-lg font-bold text-gray-900">Owner Access</h3>
-                  <p className="text-sm text-gray-500 leading-relaxed">Login to create, edit, and manage service records</p>
+                  <p className="text-sm text-gray-500 leading-relaxed">Login to edit, delete, and manage service records</p>
                 </div>
               </Link>
             )}
@@ -95,7 +95,7 @@ export default function Home() {
                 description="Browse all service records with search and filter capabilities"
               />
             </Link>
-            <Link href={isAuthenticated ? "/new" : "/login"}>
+            <Link href="/new">
               <InfoCard
                 icon={Plus}
                 title="Create Record"
@@ -126,20 +126,12 @@ export default function Home() {
               View All Records
             </button>
           </Link>
-          {isAuthenticated ? (
-            <Link href="/new">
-              <button className="inline-flex items-center gap-2 px-6 py-3 bg-[#e85d04] text-white rounded-lg font-medium hover:bg-[#d4520a] transition-colors">
-                <Plus className="w-5 h-5" />
-                Create New Record
-              </button>
-            </Link>
-          ) : (
-            <Link href="/login">
-              <button className="inline-flex items-center gap-2 px-6 py-3 bg-[#e85d04] text-white rounded-lg font-medium hover:bg-[#d4520a] transition-colors">
-                Owner Login
-              </button>
-            </Link>
-          )}
+          <Link href="/new">
+            <button className="inline-flex items-center gap-2 px-6 py-3 bg-[#e85d04] text-white rounded-lg font-medium hover:bg-[#d4520a] transition-colors">
+              <Plus className="w-5 h-5" />
+              Create New Record
+            </button>
+          </Link>
         </div>
       </section>
 
@@ -151,7 +143,7 @@ export default function Home() {
             <HowItWorksStep
               number={1}
               title="Create Records"
-              description="Owner logs in with PIN and creates detailed service records with all product and customer information"
+              description="Anyone can create a new service record by filling in the product and customer information"
             />
             <HowItWorksStep
               number={2}
@@ -160,8 +152,8 @@ export default function Home() {
             />
             <HowItWorksStep
               number={3}
-              title="Public Access"
-              description="Anyone can view and search service records without login for transparency"
+              title="Owner Management"
+              description="Owner can log in with PIN to edit, delete, and manage all service records"
             />
           </div>
         </div>

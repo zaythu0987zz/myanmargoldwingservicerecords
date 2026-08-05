@@ -20,7 +20,7 @@ const sections = [
 ];
 
 export default function NewRecord() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth(); // kept for optional "Repaired By" field
   const [, navigate] = useLocation();
 
   const [formData, setFormData] = useState({
@@ -60,11 +60,6 @@ export default function NewRecord() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isAuthenticated) {
-      toast.error("Please login to create a service record");
-      navigate("/login");
-      return;
-    }
     if (!formData.brand || !formData.customerName || !formData.date) {
       toast.error("Please fill in required fields: Brand, Customer Name, and Date");
       return;
@@ -104,11 +99,6 @@ export default function NewRecord() {
   };
 
   const totalPartsCost = parts.reduce((s, p) => s + (parseFloat(p.cost) || 0), 0);
-
-  if (!isAuthenticated) {
-    navigate("/login");
-    return null;
-  }
 
   return (
     <div className="min-h-screen bg-beige">
