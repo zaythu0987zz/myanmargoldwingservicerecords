@@ -8,6 +8,8 @@ import { QrCode, Search, Loader2, Camera, CameraOff, Upload, Image } from "lucid
 import { toast } from "sonner";
 import jsQR from "jsqr";
 
+const MAX_IMAGE_SIZE = 800; // Downscale to max 800px for jsQR compatibility
+
 export default function QRScanner() {
   const [, navigate] = useLocation();
   const [qrCode, setQrCode] = useState("");
@@ -38,29 +40,94 @@ export default function QRScanner() {
     },
   });
 
-  const extractQrCode = (decodedText: string): string => {
-    // The QR code may contain the full URL or just the record ID
+  /**
+   * Robust QR code parsing — handles both raw IDs and full URLs.
+   * Examples:
+   *   "120001" → "120001"
+   *   "rec_abc123" → "rec_abc123"
+   *   "https://myanmargoldwingservicerecords.vercel.app/record/120001" → "120001"
+   *   "https://myanmargoldwingservicerecords.vercel.app/records/rec_abc123" → "rec_abc123"
+   */
+  const extractRecordId = (rawText: string): string => {
+    const text = rawText.trim();
+    console.log("[QRScanner] Raw decoded text:", text);
+
+    // 1. Try URL parsing
     try {
-      const url = new URL(decodedText);
-      const pathParts = url.pathname.split("/");
-      const lastPart = pathParts[pathParts.length - 1];
-      if (lastPart && !isNaN(Number(lastPart))) {
-        return lastPart;
+      const url = new URL(text);
+      // Extract last segment of pathname
+      const pathParts = url.pathname.split("/").filter(Boolean);
+      if (pathParts.length > 0) {
+        const id = pathParts[pathParts.length - 1];
+        console.log("[QRScanner] Extracted from URL path:", id);
+        return id;
       }
-      return decodedText.trim();
     } catch {
-      return decodedText.trim();
+      // Not a URL, continue to regex
     }
+
+    // 2. Try regex patterns for common QR code formats
+    // Pattern: rec_XXXX or rec-XXXX or record_XXXX
+    const recMatch = text.match(/rec[_-]([a-zA-Z0-9]+)/i);
+    if (recMatch) {
+      console.log("[QRScanner] Extracted rec prefix:", recMatch[0]);
+      return recMatch[0];
+    }
+
+    // Pattern: /record/XXXX or /records/XXXX
+    const pathMatch = text.match(/\/records?\/([a-zA-Z0-9_-]+)/);
+    if (pathMatch) {
+      console.log("[QRScanner] Extracted from path pattern:", pathMatch[1]);
+      return pathMatch[1];
+    }
+
+    // Pattern: pure numeric ID
+    if (/^\d+$/.test(text)) {
+      console.log("[QRScanner] Pure numeric ID:", text);
+      return text;
+    }
+
+    // 3. Fallback: return the raw text trimmed
+    console.log("[QRScanner] Using raw text as ID:", text);
+    return text;
   };
 
-  const processScanResult = useCallback(
+  /**
+   * Process a decoded QR code string: extract ID and look up record.
+   * Uses both tRPC mutation and direct navigation as fallback.
+   */
+  const handleQrResult = useCallback(
     (decodedText: string) => {
-      const code = extractQrCode(decodedText);
-      if (code) {
-        setQrCode(code);
-        setIsSearching(true);
-        getByQr.mutate({ qrCode: code });
+      const recordId = extractRecordId(decodedText);
+      console.log("[QRScanner] Processing record ID:", recordId);
+
+      if (!recordId) {
+        toast.error("Could not parse a valid record ID from this QR code.");
+        return;
       }
+
+      // First try the getByQrCode mutation (handles QR codes that are strings, not IDs)
+      setQrCode(recordId);
+      setIsSearching(true);
+      getByQr.mutate(
+        { qrCode: recordId },
+        {
+          onSuccess: (data) => {
+            if (data) {
+              navigate(`/record/${data.id}`);
+            } else {
+              // Fallback: try navigating directly with the record ID
+              toast.success("Redirecting to record...");
+              navigate(`/record/${recordId}`);
+            }
+            setIsSearching(false);
+          },
+          onError: () => {
+            toast.error("Failed to find record");
+            setIsSearching(false);
+          },
+        }
+      );
     },
     []
   );
@@ -73,8 +140,16 @@ export default function QRScanner() {
       return;
     }
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    // Downscale camera frames to avoid memory issues
+    const maxDim = 800;
+    const scale = Math.min(
+      maxDim / video.videoWidth,
+      maxDim / video.videoHeight,
+      1
+    );
+    canvas.width = Math.floor(video.videoWidth * scale);
+    canvas.height = Math.floor(video.videoHeight * scale);
+
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) return;
 
@@ -85,39 +160,32 @@ export default function QRScanner() {
     });
 
     if (code && code.data) {
-      processScanResult(code.data);
-      return;
+      console.log("[QRScanner] Camera scan detected:", code.data);
+      handleQrResult(code.data);
+      return; // Stop scanning
     }
 
     rafRef.current = requestAnimationFrame(scanFrame);
-  }, [processScanResult]);
+  }, [handleQrResult]);
 
   const startCamera = async () => {
     setCameraError("");
 
-    // Try constraints in order of preference for iOS Safari compatibility
     const constraintsList: MediaStreamConstraints[] = [
-      // 1. Exact rear camera (best case)
       { video: { facingMode: { exact: "environment" as const } }, audio: false },
-      // 2. Ideal rear camera
       { video: { facingMode: "environment" }, audio: false },
-      // 3. Any front camera as fallback
       { video: { facingMode: "user" }, audio: false },
-      // 4. Just any video stream
       { video: true, audio: false },
     ];
 
     for (const constraints of constraintsList) {
       try {
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
-
         streamRef.current = stream;
+
         const video = videoRef.current;
         if (video) {
-          // Must set srcObject BEFORE setting attributes for iOS Safari
           video.srcObject = stream;
-
-          // iOS Safari: explicit inline playback attributes
           video.setAttribute("playsinline", "true");
           video.setAttribute("autoplay", "true");
           video.setAttribute("muted", "true");
@@ -125,36 +193,32 @@ export default function QRScanner() {
           video.muted = true;
           video.autoplay = true;
 
-          // iOS Safari needs a short delay before playing
           await new Promise((resolve) => setTimeout(resolve, 100));
           await video.play();
 
           setCameraActive(true);
           toast.success("Camera started — point at a QR code");
           rafRef.current = requestAnimationFrame(scanFrame);
-          return; // Success, exit the loop
+          return;
         }
       } catch (err: any) {
         const name = err?.name || "";
-        // OverconstrainedError means this specific constraint didn't match, try next
         if (name === "OverconstrainedError" || name === "ConstraintNotSatisfiedError") {
-          continue; // Try next constraint
+          continue;
         }
         if (name === "NotAllowedError") {
-          setCameraError("Camera permission denied. Please allow camera access in your browser settings, or use the photo upload option below.");
+          setCameraError("Camera permission denied. Please allow camera access in your browser settings, or use the photo upload options below.");
           return;
         }
         if (name === "NotFoundError" || name === "DevicesNotFoundError") {
-          setCameraError("No camera found on this device. Try using the photo upload option below.");
+          setCameraError("No camera found. Try using the photo upload options below.");
           return;
         }
-        // Other errors - try next constraint
-        console.warn("Camera attempt failed:", name, err?.message);
+        console.warn("[QRScanner] Camera attempt failed:", name, err?.message);
       }
     }
 
-    // All attempts failed
-    setCameraError("Could not start camera. Please use the photo upload option below instead.");
+    setCameraError("Could not start camera. Please use the photo upload options below instead.");
   };
 
   const stopCamera = () => {
@@ -173,7 +237,6 @@ export default function QRScanner() {
     setCameraActive(false);
   };
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -183,31 +246,65 @@ export default function QRScanner() {
     };
   }, []);
 
-  // Image processing shared by both upload buttons
+  /**
+   * Process an uploaded image file with downscaling to max 800px.
+   * This prevents jsQR memory overflow on high-resolution iOS photos (4K+).
+   */
   const processImageFile = (file: File) => {
+    toast.loading("Processing image...");
+
     const image = new Image();
     image.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = image.width;
-      canvas.height = image.height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
+      // Calculate downscaled dimensions
+      const { width: origW, height: origH } = image;
+      let targetW = origW;
+      let targetH = origH;
 
-      ctx.drawImage(image, 0, 0);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      if (origW > MAX_IMAGE_SIZE || origH > MAX_IMAGE_SIZE) {
+        const scale = Math.min(MAX_IMAGE_SIZE / origW, MAX_IMAGE_SIZE / origH);
+        targetW = Math.floor(origW * scale);
+        targetH = Math.floor(origH * scale);
+        console.log(`[QRScanner] Downscaling image from ${origW}x${origH} to ${targetW}x${targetH}`);
+      } else {
+        console.log(`[QRScanner] Image already within size limit: ${origW}x${origH}`);
+      }
+
+      // Draw downscaled image onto canvas
+      const canvas = document.createElement("canvas");
+      canvas.width = targetW;
+      canvas.height = targetH;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (!ctx) {
+        toast.dismiss();
+        toast.error("Failed to process image. Canvas not supported.");
+        return;
+      }
+
+      // Use high-quality downscaling
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(image, 0, 0, targetW, targetH);
+
+      const imageData = ctx.getImageData(0, 0, targetW, targetH);
       const code = jsQR(imageData.data, imageData.width, imageData.height, {
         inversionAttempts: "attemptBoth",
       });
 
+      toast.dismiss();
+
       if (code && code.data) {
-        processScanResult(code.data);
+        console.log("[QRScanner] Image scan detected:", code.data);
+        handleQrResult(code.data);
       } else {
-        toast.error("No QR code found in the image");
+        toast.error("No valid QR code found in this image. Please try another photo.");
       }
     };
+
     image.onerror = () => {
-      toast.error("Failed to load image");
+      toast.dismiss();
+      toast.error("Failed to load image. Please try a different photo.");
     };
+
     image.src = URL.createObjectURL(file);
   };
 
@@ -296,7 +393,6 @@ export default function QRScanner() {
                         autoPlay
                         muted
                       />
-                      {/* Scanning overlay */}
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <div className="w-48 h-48 border-2 border-white/60 rounded-lg shadow-lg" />
                       </div>
