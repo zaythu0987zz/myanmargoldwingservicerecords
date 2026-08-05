@@ -1,10 +1,10 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import Header from "@/components/Header";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { QrCode, Search, Loader2, Camera, CameraOff, Upload } from "lucide-react";
+import { QrCode, Search, Loader2, Camera, CameraOff, Upload, Image } from "lucide-react";
 import { toast } from "sonner";
 import jsQR from "jsqr";
 
@@ -19,7 +19,8 @@ export default function QRScanner() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef<number | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const getByQr = trpc.serviceRecords.getByQrCode.useMutation({
     onSuccess: (data) => {
@@ -39,7 +40,6 @@ export default function QRScanner() {
 
   const extractQrCode = (decodedText: string): string => {
     // The QR code may contain the full URL or just the record ID
-    // e.g., "https://myanmargoldwingservicerecords.vercel.app/record/123"
     try {
       const url = new URL(decodedText);
       const pathParts = url.pathname.split("/");
@@ -49,7 +49,6 @@ export default function QRScanner() {
       }
       return decodedText.trim();
     } catch {
-      // Not a URL, return the raw text
       return decodedText.trim();
     }
   };
@@ -87,7 +86,7 @@ export default function QRScanner() {
 
     if (code && code.data) {
       processScanResult(code.data);
-      return; // Stop scanning
+      return;
     }
 
     rafRef.current = requestAnimationFrame(scanFrame);
@@ -96,42 +95,66 @@ export default function QRScanner() {
   const startCamera = async () => {
     setCameraError("");
 
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: "environment",
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-        audio: false,
-      });
+    // Try constraints in order of preference for iOS Safari compatibility
+    const constraintsList: MediaStreamConstraints[] = [
+      // 1. Exact rear camera (best case)
+      { video: { facingMode: { exact: "environment" as const } }, audio: false },
+      // 2. Ideal rear camera
+      { video: { facingMode: "environment" }, audio: false },
+      // 3. Any front camera as fallback
+      { video: { facingMode: "user" }, audio: false },
+      // 4. Just any video stream
+      { video: true, audio: false },
+    ];
 
-      streamRef.current = stream;
-      const video = videoRef.current;
-      if (video) {
-        video.srcObject = stream;
-        // iOS Safari requires these attributes set after srcObject
-        video.setAttribute("playsinline", "");
-        video.setAttribute("muted", "");
-        video.setAttribute("autoplay", "");
-        video.playsInline = true;
-        video.muted = true;
+    for (const constraints of constraintsList) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
 
-        await video.play();
-        setCameraActive(true);
-        toast.success("Camera started — point at a QR code");
-        rafRef.current = requestAnimationFrame(scanFrame);
-      }
-    } catch (err: any) {
-      const errorMsg = err?.name || err?.message || "Unknown error";
-      if (errorMsg === "NotAllowedError" || errorMsg.includes("Permission")) {
-        setCameraError("Camera permission denied. Please allow camera access in your browser settings.");
-      } else if (errorMsg === "NotFoundError" || errorMsg === "DevicesNotFoundError") {
-        setCameraError("No camera found on this device");
-      } else {
-        setCameraError("Failed to start camera. Try the photo upload option instead.");
+        streamRef.current = stream;
+        const video = videoRef.current;
+        if (video) {
+          // Must set srcObject BEFORE setting attributes for iOS Safari
+          video.srcObject = stream;
+
+          // iOS Safari: explicit inline playback attributes
+          video.setAttribute("playsinline", "true");
+          video.setAttribute("autoplay", "true");
+          video.setAttribute("muted", "true");
+          video.playsInline = true;
+          video.muted = true;
+          video.autoplay = true;
+
+          // iOS Safari needs a short delay before playing
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          await video.play();
+
+          setCameraActive(true);
+          toast.success("Camera started — point at a QR code");
+          rafRef.current = requestAnimationFrame(scanFrame);
+          return; // Success, exit the loop
+        }
+      } catch (err: any) {
+        const name = err?.name || "";
+        // OverconstrainedError means this specific constraint didn't match, try next
+        if (name === "OverconstrainedError" || name === "ConstraintNotSatisfiedError") {
+          continue; // Try next constraint
+        }
+        if (name === "NotAllowedError") {
+          setCameraError("Camera permission denied. Please allow camera access in your browser settings, or use the photo upload option below.");
+          return;
+        }
+        if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+          setCameraError("No camera found on this device. Try using the photo upload option below.");
+          return;
+        }
+        // Other errors - try next constraint
+        console.warn("Camera attempt failed:", name, err?.message);
       }
     }
+
+    // All attempts failed
+    setCameraError("Could not start camera. Please use the photo upload option below instead.");
   };
 
   const stopCamera = () => {
@@ -150,50 +173,57 @@ export default function QRScanner() {
     setCameraActive(false);
   };
 
-  // Image upload fallback
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+      }
+    };
+  }, []);
+
+  // Image processing shared by both upload buttons
+  const processImageFile = (file: File) => {
+    const image = new Image();
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = image.width;
+      canvas.height = image.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      ctx.drawImage(image, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: "attemptBoth",
+      });
+
+      if (code && code.data) {
+        processScanResult(code.data);
+      } else {
+        toast.error("No QR code found in the image");
+      }
+    };
+    image.onerror = () => {
+      toast.error("Failed to load image");
+    };
+    image.src = URL.createObjectURL(file);
+  };
+
+  const handleGalleryUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    try {
-      const image = new Image();
-      image.onload = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = image.width;
-        canvas.height = image.height;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-
-        ctx.drawImage(image, 0, 0);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height, {
-          inversionAttempts: "attemptBoth",
-        });
-
-        if (code && code.data) {
-          processScanResult(code.data);
-        } else {
-          toast.error("No QR code found in the image");
-        }
-      };
-      image.onerror = () => {
-        toast.error("Failed to load image");
-      };
-      image.src = URL.createObjectURL(file);
-    } catch {
-      toast.error("Failed to process image");
-    }
-
-    // Reset file input so the same file can be selected again
+    processImageFile(file);
     e.target.value = "";
   };
 
-  // Cleanup on unmount
-  useState(() => {
-    return () => {
-      stopCamera();
-    };
-  });
+  const handleCameraUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processImageFile(file);
+    e.target.value = "";
+  };
 
   const handleLookup = () => {
     if (!qrCode.trim()) {
@@ -210,6 +240,23 @@ export default function QRScanner() {
 
       {/* Hidden canvas for frame processing */}
       <canvas ref={canvasRef} className="hidden" />
+
+      {/* Hidden file inputs */}
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleGalleryUpload}
+        className="hidden"
+      />
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleCameraUpload}
+        className="hidden"
+      />
 
       <main className="container py-8">
         <div className="max-w-md mx-auto">
@@ -243,11 +290,11 @@ export default function QRScanner() {
                     <div className="relative w-full overflow-hidden rounded-xl border border-gray-200 bg-black" style={{ minHeight: "250px" }}>
                       <video
                         ref={videoRef}
-                        playsInline
-                        muted
-                        autoPlay
                         className="w-full h-full object-cover"
-                        style={{ minHeight: "250px" }}
+                        style={{ width: "100%", height: "100%", minHeight: "250px" }}
+                        playsInline
+                        autoPlay
+                        muted
                       />
                       {/* Scanning overlay */}
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -269,26 +316,26 @@ export default function QRScanner() {
                 )}
               </div>
 
-              {/* Image Upload Fallback */}
+              {/* Image Upload Options */}
               <div className="mb-6">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                  id="qr-photo-upload"
-                />
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-[#2563eb] text-white rounded-xl text-sm font-semibold hover:bg-[#1d4ed8] transition-colors shadow-sm"
-                >
-                  <Upload className="w-4 h-4" />
-                  Upload QR Photo
-                </button>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => galleryInputRef.current?.click()}
+                    className="flex flex-col items-center justify-center gap-1.5 px-4 py-3 bg-[#2563eb] text-white rounded-xl text-sm font-semibold hover:bg-[#1d4ed8] transition-colors shadow-sm"
+                  >
+                    <Image className="w-5 h-5" />
+                    <span>Choose from Library</span>
+                  </button>
+                  <button
+                    onClick={() => cameraInputRef.current?.click()}
+                    className="flex flex-col items-center justify-center gap-1.5 px-4 py-3 bg-[#059669] text-white rounded-xl text-sm font-semibold hover:bg-[#047857] transition-colors shadow-sm"
+                  >
+                    <Upload className="w-5 h-5" />
+                    <span>Take Photo of QR</span>
+                  </button>
+                </div>
                 <p className="text-xs text-gray-400 text-center mt-2">
-                  Take a photo of a QR code or select one from your gallery
+                  Select a QR code image from your library or take a new photo
                 </p>
               </div>
 
