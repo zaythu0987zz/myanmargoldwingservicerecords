@@ -306,20 +306,20 @@ async function getAnalyticsData(params) {
     totalServiceCharges: sql`coalesce(sum(${serviceRecords.serviceCharges}), 0)`,
     totalPartsCost: sql`coalesce(sum(${serviceRecords.totalCost}), 0)`,
     grandTotal: sql`coalesce(sum(${serviceRecords.serviceCharges}), 0) + coalesce(sum(${serviceRecords.totalCost}), 0)`
-  }).from(serviceRecords).where(whereClause).groupBy(serviceRecords.repairedBy).orderBy(sql`grandTotal desc`);
+  }).from(serviceRecords).where(whereClause).groupBy(serviceRecords.repairedBy).orderBy(sql`coalesce(sum(${serviceRecords.serviceCharges}), 0) + coalesce(sum(${serviceRecords.totalCost}), 0) desc`);
   const brandData = await db.select({
     brand: serviceRecords.brand,
     count: sql`count(*)`
-  }).from(serviceRecords).where(whereClause).groupBy(serviceRecords.brand).orderBy(sql`count desc`);
+  }).from(serviceRecords).where(whereClause).groupBy(serviceRecords.brand).orderBy(sql`count(*) desc`);
   const monthlyData = await db.select({
     year: sql`year(${serviceRecords.serviceDate})`,
     month: sql`month(${serviceRecords.serviceDate})`,
     recordCount: sql`count(*)`,
     totalRevenue: sql`coalesce(sum(${serviceRecords.serviceCharges}), 0) + coalesce(sum(${serviceRecords.totalCost}), 0)`
-  }).from(serviceRecords).where(whereClause).groupBy(sql`year(${serviceRecords.serviceDate})`, sql`month(${serviceRecords.serviceDate})`).orderBy(sql`year`, sql`month`);
+  }).from(serviceRecords).where(whereClause).groupBy(sql`year(${serviceRecords.serviceDate})`, sql`month(${serviceRecords.serviceDate})`).orderBy(sql`year(${serviceRecords.serviceDate})`, sql`month(${serviceRecords.serviceDate})`);
   const availableYears = await db.select({
     year: sql`year(${serviceRecords.serviceDate})`
-  }).from(serviceRecords).groupBy(sql`year(${serviceRecords.serviceDate})`).orderBy(sql`year desc`);
+  }).from(serviceRecords).groupBy(sql`year(${serviceRecords.serviceDate})`).orderBy(sql`year(${serviceRecords.serviceDate}) desc`);
   return {
     financial: {
       totalRecords: Number(financial?.totalRecords || 0),

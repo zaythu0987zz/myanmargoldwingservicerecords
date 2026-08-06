@@ -329,7 +329,7 @@ export async function getAnalyticsData(params?: {
     .from(serviceRecords)
     .where(whereClause)
     .groupBy(serviceRecords.repairedBy)
-    .orderBy(sql<number>`grandTotal desc`);
+    .orderBy(sql`coalesce(sum(${serviceRecords.serviceCharges}), 0) + coalesce(sum(${serviceRecords.totalCost}), 0) desc`);
 
   // 3. Brand breakdown
   const brandData = await db
@@ -340,7 +340,7 @@ export async function getAnalyticsData(params?: {
     .from(serviceRecords)
     .where(whereClause)
     .groupBy(serviceRecords.brand)
-    .orderBy(sql<number>`count desc`);
+    .orderBy(sql`count(*) desc`);
 
   // 4. Monthly breakdown (for charts)
   const monthlyData = await db
@@ -353,7 +353,7 @@ export async function getAnalyticsData(params?: {
     .from(serviceRecords)
     .where(whereClause)
     .groupBy(sql`year(${serviceRecords.serviceDate})`, sql`month(${serviceRecords.serviceDate})`)
-    .orderBy(sql<number>`year`, sql<number>`month`);
+    .orderBy(sql`year(${serviceRecords.serviceDate})`, sql`month(${serviceRecords.serviceDate})`);
 
   // 5. Available years for filter
   const availableYears = await db
@@ -362,7 +362,7 @@ export async function getAnalyticsData(params?: {
     })
     .from(serviceRecords)
     .groupBy(sql`year(${serviceRecords.serviceDate})`)
-    .orderBy(sql<number>`year desc`);
+    .orderBy(sql`year(${serviceRecords.serviceDate}) desc`);
 
   return {
     financial: {

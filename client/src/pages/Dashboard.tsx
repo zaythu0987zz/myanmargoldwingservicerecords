@@ -146,9 +146,11 @@ export default function Dashboard() {
 
   const yearLabel = selectedYear ? String(selectedYear) : "All Years";
   const monthLabel = selectedMonth ? MONTH_NAMES[selectedMonth] : "All Months";
-  const periodLabel = selectedYear
-    ? `${yearLabel} ${selectedMonth ? `• ${monthLabel}` : ""}`
-    : "All Time";
+  const periodLabel = !selectedYear
+    ? "All Time"
+    : selectedMonth
+    ? `${yearLabel} • ${monthLabel}`
+    : yearLabel;
 
   const handleExport = () => {
     if (analytics) {
