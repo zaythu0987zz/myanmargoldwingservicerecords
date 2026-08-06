@@ -279,7 +279,7 @@ async function exportServiceReportExcel(
       completion: record.outDate ? formatDateShortNoDay(record.outDate) : (status === "Repair In Progress" ? "In Progress" : ""),
       remarks: getRemarks(status),
       issues: record.technicalIssues || "",
-      technician: record.repairedBy ? getTechInitials(record.repairedBy) : "",
+      technician: record.repairedBy || "",
     };
 
     // Alternate row coloring
@@ -324,7 +324,7 @@ async function exportServiceReportExcel(
   const footerRow = worksheet.getRow(footerStartRow);
   footerRow.height = 25;
 
-  const techInitialsList = technicians.map((t: string) => `TECHNICIAN ${getTechInitials(t)}`).join("    ");
+  const techInitialsList = technicians.map((t: string) => `TECHNICIAN ${t}`).join("    ");
   footerRow.getCell(1).value = `Active Technicians: ${techInitialsList}`;
   footerRow.getCell(1).font = { bold: true, size: 11 };
   footerRow.getCell(1).alignment = { horizontal: "left", vertical: "middle" };
