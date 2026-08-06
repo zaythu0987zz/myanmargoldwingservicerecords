@@ -7,9 +7,6 @@ import { Input } from "@/components/ui/input";
 import { QrCode, Search, Loader2, Camera, CameraOff, Upload, Image } from "lucide-react";
 import { toast } from "sonner";
 import jsQR from "jsqr";
-import heic2any from "heic2any";
-
-const MAX_IMAGE_SIZE = 800;
 
 export default function QRScanner() {
   const [, navigate] = useLocation();
@@ -18,6 +15,7 @@ export default function QRScanner() {
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [barcodeDetectorSupported, setBarcodeDetectorSupported] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -25,6 +23,13 @@ export default function QRScanner() {
   const rafRef = useRef<number | null>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  // Detect BarcodeDetector API support on mount
+  useEffect(() => {
+    const supported = "BarcodeDetector" in window;
+    setBarcodeDetectorSupported(supported);
+    console.log("[QRScanner] BarcodeDetector supported:", supported);
+  }, []);
 
   const getByQr = trpc.serviceRecords.getByQrCode.useMutation({
     onSuccess: (data) => {
@@ -122,6 +127,10 @@ export default function QRScanner() {
     []
   );
 
+  // ─────────────────────────────────────────────
+  // LIVE CAMERA SCANNING
+  // ─────────────────────────────────────────────
+
   const scanFrame = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -130,6 +139,7 @@ export default function QRScanner() {
       return;
     }
 
+    // Downscale camera frames to avoid memory issues
     const maxDim = 800;
     const scale = Math.min(maxDim / video.videoWidth, maxDim / video.videoHeight, 1);
     canvas.width = Math.floor(video.videoWidth * scale);
@@ -139,19 +149,38 @@ export default function QRScanner() {
     if (!ctx) return;
 
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Try native BarcodeDetector first (supported on modern Safari/Chrome/Android)
+    if (barcodeDetectorSupported) {
+      try {
+        const detector = new (window as any).BarcodeDetector({ formats: ["qr_code"] });
+        detector.detect(canvas).then((results: any[]) => {
+          if (results.length > 0 && results[0].rawValue) {
+            console.log("[QRScanner] BarcodeDetector detected:", results[0].rawValue);
+            handleQrResult(results[0].rawValue);
+          }
+        }).catch(() => {
+          // BarcodeDetector failed silently, fall through to jsQR
+        });
+      } catch {
+        // BarcodeDetector instantiation failed, fall through to jsQR
+      }
+    }
+
+    // Fallback: jsQR
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const code = jsQR(imageData.data, imageData.width, imageData.height, {
       inversionAttempts: "attemptBoth",
     });
 
     if (code && code.data) {
-      console.log("[QRScanner] Camera scan detected:", code.data);
+      console.log("[QRScanner] jsQR detected:", code.data);
       handleQrResult(code.data);
       return;
     }
 
     rafRef.current = requestAnimationFrame(scanFrame);
-  }, [handleQrResult]);
+  }, [handleQrResult, barcodeDetectorSupported]);
 
   const startCamera = async () => {
     setCameraError("");
@@ -231,127 +260,121 @@ export default function QRScanner() {
     };
   }, []);
 
-  /**
-   * Load an image blob onto an HTMLImageElement with a timeout.
-   */
-  const loadImageBlob = (blob: Blob): Promise<HTMLImageElement> => {
-    return new Promise((resolve, reject) => {
-      const image = new Image();
-      const url = URL.createObjectURL(blob);
-
-      const timeout = setTimeout(() => {
-        URL.revokeObjectURL(url);
-        reject(new Error("Image loading timed out"));
-      }, 15000); // 15 second timeout
-
-      image.onload = () => {
-        clearTimeout(timeout);
-        URL.revokeObjectURL(url);
-        resolve(image);
-      };
-
-      image.onerror = () => {
-        clearTimeout(timeout);
-        URL.revokeObjectURL(url);
-        reject(new Error("Image failed to load"));
-      };
-
-      image.src = url;
-    });
-  };
+  // ─────────────────────────────────────────────
+  // IMAGE FILE PROCESSING (simplified pipeline)
+  // ─────────────────────────────────────────────
 
   /**
-   * Decode jsQR from an ImageElement with downscaling to max 800px.
-   */
-  const decodeQrFromImage = (image: HTMLImageElement): string | null => {
-    const { width: origW, height: origH } = image;
-    let targetW = origW;
-    let targetH = origH;
-
-    if (origW > MAX_IMAGE_SIZE || origH > MAX_IMAGE_SIZE) {
-      const scale = Math.min(MAX_IMAGE_SIZE / origW, MAX_IMAGE_SIZE / origH);
-      targetW = Math.floor(origW * scale);
-      targetH = Math.floor(origH * scale);
-      console.log(`[QRScanner] Downscaling from ${origW}x${origH} to ${targetW}x${targetH}`);
-    }
-
-    const canvas = document.createElement("canvas");
-    canvas.width = targetW;
-    canvas.height = targetH;
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    if (!ctx) return null;
-
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(image, 0, 0, targetW, targetH);
-
-    const imageData = ctx.getImageData(0, 0, targetW, targetH);
-    const code = jsQR(imageData.data, imageData.width, imageData.height, {
-      inversionAttempts: "attemptBoth",
-    });
-
-    return code?.data ?? null;
-  };
-
-  /**
-   * Process an uploaded file — handles HEIC/HEIF conversion and standard images.
-   * Always uses try/catch/finally to prevent UI from getting stuck.
+   * Process an uploaded image file.
+   * Primary: Native BarcodeDetector (fast, no format issues)
+   * Fallback: jsQR with canvas downscaling
+   * Always uses try/catch/finally to prevent UI freeze.
    */
   const processImageFile = async (file: File) => {
-    const fileType = file.type.toLowerCase();
-    const fileName = file.name.toLowerCase();
-    const isHeic = fileType.includes("heic") || fileType.includes("heif") ||
-                   fileName.endsWith(".heic") || fileName.endsWith(".heif");
-
-    console.log(`[QRScanner] Processing file: ${file.name} (${file.type}, size: ${(file.size / 1024).toFixed(0)}KB, HEIC: ${isHeic})`);
+    console.log(`[QRScanner] Processing file: ${file.name} (${file.type}, ${(file.size / 1024).toFixed(0)}KB)`);
 
     setIsProcessing(true);
+    let objectUrl: string | null = null;
 
     try {
-      // 1. Convert HEIC/HEIF to JPEG if needed
-      let imageBlob: Blob;
-      if (isHeic) {
-        console.log("[QRScanner] Converting HEIC/HEIF to JPEG...");
+      // Create object URL for the image file (works with any format including HEIC on iOS)
+      objectUrl = URL.createObjectURL(file);
+      console.log("[QRScanner] Object URL created:", objectUrl);
+
+      // Create an image element and load the file
+      const image = new Image();
+      image.crossOrigin = "anonymous";
+
+      // Timeout to prevent infinite hang on iOS
+      const loadTimeout = setTimeout(() => {
+        console.warn("[QRScanner] Image load timed out after 10s");
+      }, 10000);
+
+      await new Promise<void>((resolve, reject) => {
+        image.onload = () => {
+          clearTimeout(loadTimeout);
+          console.log(`[QRScanner] Image loaded: ${image.width}x${image.height}`);
+          resolve();
+        };
+        image.onerror = () => {
+          clearTimeout(loadTimeout);
+          reject(new Error("Image failed to load"));
+        };
+        image.src = objectUrl;
+      });
+
+      // Downscale if too large (prevents canvas memory overflow)
+      const MAX_DIM = 800;
+      let targetW = image.width;
+      let targetH = image.height;
+      if (targetW > MAX_DIM || targetH > MAX_DIM) {
+        const scale = Math.min(MAX_DIM / targetW, MAX_DIM / targetH);
+        targetW = Math.floor(targetW * scale);
+        targetH = Math.floor(targetH * scale);
+      }
+
+      // Draw to canvas
+      const canvas = document.createElement("canvas");
+      canvas.width = targetW;
+      canvas.height = targetH;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (!ctx) throw new Error("Canvas not supported");
+
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(image, 0, 0, targetW, targetH);
+
+      let decodedText: string | null = null;
+
+      // Primary: Try native BarcodeDetector (fast, works on modern browsers including Safari)
+      if (barcodeDetectorSupported) {
         try {
-          const result = await heic2any({
-            blob: file,
-            toType: "image/jpeg",
-            quality: 0.8,
-          });
-          // heic2any returns Blob or Blob[]
-          imageBlob = Array.isArray(result) ? result[0] : result;
-          console.log("[QRScanner] HEIC converted to JPEG successfully");
-        } catch (heicErr) {
-          console.error("[QRScanner] HEIC conversion failed:", heicErr);
-          throw new Error("Failed to convert HEIC image. The image format may not be supported on this device.");
+          console.log("[QRScanner] Trying BarcodeDetector...");
+          const detector = new (window as any).BarcodeDetector({ formats: ["qr_code"] });
+          const results = await detector.detect(image);
+          if (results.length > 0 && results[0].rawValue) {
+            decodedText = results[0].rawValue;
+            console.log("[QRScanner] BarcodeDetector result:", decodedText);
+          }
+        } catch (err: any) {
+          console.warn("[QRScanner] BarcodeDetector failed:", err?.message);
+          // Fall through to jsQR
         }
-      } else {
-        imageBlob = file;
       }
 
-      // 2. Load the image onto an HTMLImageElement (with timeout)
-      let image: HTMLImageElement;
-      try {
-        image = await loadImageBlob(imageBlob);
-        console.log(`[QRScanner] Image loaded: ${image.width}x${image.height}`);
-      } catch (loadErr) {
-        console.error("[QRScanner] Image load error:", loadErr);
-        throw new Error("Failed to load the image. The file may be corrupted or unsupported.");
+      // Fallback: jsQR
+      if (!decodedText) {
+        console.log("[QRScanner] Trying jsQR...");
+        const imageData = ctx.getImageData(0, 0, targetW, targetH);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "attemptBoth",
+        });
+        if (code && code.data) {
+          decodedText = code.data;
+          console.log("[QRScanner] jsQR result:", decodedText);
+        }
       }
 
-      // 3. Decode QR code from the image
-      const decodedText = decodeQrFromImage(image);
-
+      // Handle result
       if (decodedText && decodedText.length > 0) {
-        console.log("[QRScanner] QR decoded from image:", decodedText);
         handleQrResult(decodedText);
       } else {
         toast.error("Could not detect a QR code in this photo. Please try a clearer or closer shot.");
       }
     } catch (err: any) {
       console.error("[QRScanner] Image processing error:", err);
-      toast.error(err.message || "Failed to process the image. Please try again.");
+      const msg = err?.message || "";
+      if (msg === "Image failed to load") {
+        toast.error("Failed to load the image. The file format may not be supported. Try taking a screenshot or using a different image.");
+      } else {
+        toast.error("Failed to process the image. Please try again.");
+      }
     } finally {
+      // Always clean up object URL to prevent WebKit memory leaks
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+        console.log("[QRScanner] Object URL revoked");
+      }
       setIsProcessing(false);
     }
   };
@@ -474,7 +497,7 @@ export default function QRScanner() {
               </div>
 
               {/* Image Upload Options */}
-              <div className="mb-6">
+              <div className="mb-4">
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={() => galleryInputRef.current?.click()}
@@ -501,9 +524,18 @@ export default function QRScanner() {
                     <span>{isProcessing ? "Processing..." : "Take Photo of QR"}</span>
                   </button>
                 </div>
-                <p className="text-xs text-gray-400 text-center mt-2">
-                  Supports JPG, PNG, HEIC (iOS) and other common formats
-                </p>
+              </div>
+
+              {/* iOS Native Camera Fallback */}
+              <div className="mb-6">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-xs text-blue-700 text-center font-medium mb-2">
+                    iPhone / iPad Users
+                  </p>
+                  <p className="text-xs text-blue-600 text-center">
+                    Your iPhone Camera app automatically detects QR codes. Just open the Camera, point at the QR code, and tap the notification to open the record directly.
+                  </p>
+                </div>
               </div>
 
               {/* Divider */}
