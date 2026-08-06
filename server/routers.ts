@@ -15,6 +15,8 @@ import {
   updateServiceRecord,
   getDb,
   getAnalyticsData,
+  getAllRecordsForReport,
+  deriveStatus,
 } from "./db";
 import { nanoid } from "nanoid";
 
@@ -286,6 +288,25 @@ export const appRouter = router({
       )
       .query(async ({ input }) => {
         return getAnalyticsData(input);
+      }),
+
+    // Protected: Get records for Excel report export with filters
+    serviceReport: protectedProcedure
+      .input(
+        z.object({
+          dateFrom: z.string().optional(),
+          dateTo: z.string().optional(),
+          status: z.enum(["All", "Repair In Progress", "Awaiting Customer Confirmation / Quotation", "Completed Service"]).optional(),
+        }).optional()
+      )
+      .query(async ({ input }) => {
+        const records = await getAllRecordsForReport(input);
+        // Attach derived status to each record
+        const enrichedRecords = records.map((r: any) => ({
+          ...r,
+          status: deriveStatus(r),
+        }));
+        return enrichedRecords;
       }),
   }),
 });

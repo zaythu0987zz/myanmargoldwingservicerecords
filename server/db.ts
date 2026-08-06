@@ -279,6 +279,57 @@ export async function getAllBrands() {
 
 // ─── Analytics Operations ──────────────────────────────────────────────────
 
+// Get all records for Excel export (with date range and status filters)
+export async function getAllRecordsForReport(params?: {
+  dateFrom?: string;
+  dateTo?: string;
+  status?: string;
+}) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const conditions = [];
+
+  if (params?.dateFrom) {
+    conditions.push(gte(serviceRecords.serviceDate, new Date(params.dateFrom)));
+  }
+
+  if (params?.dateTo) {
+    conditions.push(lte(serviceRecords.serviceDate, new Date(params.dateTo)));
+  }
+
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const records = await db
+    .select()
+    .from(serviceRecords)
+    .where(whereClause)
+    .orderBy(desc(serviceRecords.serviceDate))
+    .limit(1000);
+
+  // If status filter is applied, derive status and filter in JS
+  let filtered = records;
+  if (params?.status && params.status !== "All") {
+    filtered = records.filter((r) => {
+      const recStatus = deriveStatus(r);
+      return recStatus === params.status;
+    });
+  }
+
+  return filtered;
+}
+
+// Derive status from record fields
+export function deriveStatus(record: any): string {
+  if (record.outDate) {
+    return "Completed Service";
+  }
+  if (record.serviceCharges && parseFloat(record.serviceCharges) > 0) {
+    return "Awaiting Customer Confirmation / Quotation";
+  }
+  return "Repair In Progress";
+}
+
 export async function getAnalyticsData(params?: {
   year?: number;
   month?: number; // 0 = all months
