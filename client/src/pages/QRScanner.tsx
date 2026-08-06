@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { QrCode, Search, Loader2, Camera, CameraOff, Upload, Image } from "lucide-react";
 import { toast } from "sonner";
 import jsQR from "jsqr";
+import heic2any from "heic2any";
 
-const MAX_IMAGE_SIZE = 800; // Downscale to max 800px for jsQR compatibility
+const MAX_IMAGE_SIZE = 800;
 
 export default function QRScanner() {
   const [, navigate] = useLocation();
@@ -16,6 +17,7 @@ export default function QRScanner() {
   const [isSearching, setIsSearching] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -27,7 +29,6 @@ export default function QRScanner() {
   const getByQr = trpc.serviceRecords.getByQrCode.useMutation({
     onSuccess: (data) => {
       if (data) {
-        stopCamera();
         navigate(`/record/${data.id}`);
       } else {
         toast.error("Record not found for this QR code");
@@ -41,12 +42,7 @@ export default function QRScanner() {
   });
 
   /**
-   * Robust QR code parsing — handles both raw IDs and full URLs.
-   * Examples:
-   *   "120001" → "120001"
-   *   "rec_abc123" → "rec_abc123"
-   *   "https://myanmargoldwingservicerecords.vercel.app/record/120001" → "120001"
-   *   "https://myanmargoldwingservicerecords.vercel.app/records/rec_abc123" → "rec_abc123"
+   * Robust QR code parsing — handles raw IDs, prefixed IDs, and full URLs.
    */
   const extractRecordId = (rawText: string): string => {
     const text = rawText.trim();
@@ -55,7 +51,6 @@ export default function QRScanner() {
     // 1. Try URL parsing
     try {
       const url = new URL(text);
-      // Extract last segment of pathname
       const pathParts = url.pathname.split("/").filter(Boolean);
       if (pathParts.length > 0) {
         const id = pathParts[pathParts.length - 1];
@@ -63,38 +58,35 @@ export default function QRScanner() {
         return id;
       }
     } catch {
-      // Not a URL, continue to regex
+      // Not a URL
     }
 
-    // 2. Try regex patterns for common QR code formats
-    // Pattern: rec_XXXX or rec-XXXX or record_XXXX
+    // 2. Try regex patterns
     const recMatch = text.match(/rec[_-]([a-zA-Z0-9]+)/i);
     if (recMatch) {
       console.log("[QRScanner] Extracted rec prefix:", recMatch[0]);
       return recMatch[0];
     }
 
-    // Pattern: /record/XXXX or /records/XXXX
     const pathMatch = text.match(/\/records?\/([a-zA-Z0-9_-]+)/);
     if (pathMatch) {
       console.log("[QRScanner] Extracted from path pattern:", pathMatch[1]);
       return pathMatch[1];
     }
 
-    // Pattern: pure numeric ID
+    // 3. Pure numeric ID
     if (/^\d+$/.test(text)) {
       console.log("[QRScanner] Pure numeric ID:", text);
       return text;
     }
 
-    // 3. Fallback: return the raw text trimmed
+    // 4. Fallback: raw text
     console.log("[QRScanner] Using raw text as ID:", text);
     return text;
   };
 
   /**
    * Process a decoded QR code string: extract ID and look up record.
-   * Uses both tRPC mutation and direct navigation as fallback.
    */
   const handleQrResult = useCallback(
     (decodedText: string) => {
@@ -106,7 +98,6 @@ export default function QRScanner() {
         return;
       }
 
-      // First try the getByQrCode mutation (handles QR codes that are strings, not IDs)
       setQrCode(recordId);
       setIsSearching(true);
       getByQr.mutate(
@@ -116,7 +107,6 @@ export default function QRScanner() {
             if (data) {
               navigate(`/record/${data.id}`);
             } else {
-              // Fallback: try navigating directly with the record ID
               toast.success("Redirecting to record...");
               navigate(`/record/${recordId}`);
             }
@@ -140,13 +130,8 @@ export default function QRScanner() {
       return;
     }
 
-    // Downscale camera frames to avoid memory issues
     const maxDim = 800;
-    const scale = Math.min(
-      maxDim / video.videoWidth,
-      maxDim / video.videoHeight,
-      1
-    );
+    const scale = Math.min(maxDim / video.videoWidth, maxDim / video.videoHeight, 1);
     canvas.width = Math.floor(video.videoWidth * scale);
     canvas.height = Math.floor(video.videoHeight * scale);
 
@@ -162,7 +147,7 @@ export default function QRScanner() {
     if (code && code.data) {
       console.log("[QRScanner] Camera scan detected:", code.data);
       handleQrResult(code.data);
-      return; // Stop scanning
+      return;
     }
 
     rafRef.current = requestAnimationFrame(scanFrame);
@@ -247,70 +232,139 @@ export default function QRScanner() {
   }, []);
 
   /**
-   * Process an uploaded image file with downscaling to max 800px.
-   * This prevents jsQR memory overflow on high-resolution iOS photos (4K+).
+   * Load an image blob onto an HTMLImageElement with a timeout.
    */
-  const processImageFile = (file: File) => {
-    toast.loading("Processing image...");
+  const loadImageBlob = (blob: Blob): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      const url = URL.createObjectURL(blob);
 
-    const image = new Image();
-    image.onload = () => {
-      // Calculate downscaled dimensions
-      const { width: origW, height: origH } = image;
-      let targetW = origW;
-      let targetH = origH;
+      const timeout = setTimeout(() => {
+        URL.revokeObjectURL(url);
+        reject(new Error("Image loading timed out"));
+      }, 15000); // 15 second timeout
 
-      if (origW > MAX_IMAGE_SIZE || origH > MAX_IMAGE_SIZE) {
-        const scale = Math.min(MAX_IMAGE_SIZE / origW, MAX_IMAGE_SIZE / origH);
-        targetW = Math.floor(origW * scale);
-        targetH = Math.floor(origH * scale);
-        console.log(`[QRScanner] Downscaling image from ${origW}x${origH} to ${targetW}x${targetH}`);
+      image.onload = () => {
+        clearTimeout(timeout);
+        URL.revokeObjectURL(url);
+        resolve(image);
+      };
+
+      image.onerror = () => {
+        clearTimeout(timeout);
+        URL.revokeObjectURL(url);
+        reject(new Error("Image failed to load"));
+      };
+
+      image.src = url;
+    });
+  };
+
+  /**
+   * Decode jsQR from an ImageElement with downscaling to max 800px.
+   */
+  const decodeQrFromImage = (image: HTMLImageElement): string | null => {
+    const { width: origW, height: origH } = image;
+    let targetW = origW;
+    let targetH = origH;
+
+    if (origW > MAX_IMAGE_SIZE || origH > MAX_IMAGE_SIZE) {
+      const scale = Math.min(MAX_IMAGE_SIZE / origW, MAX_IMAGE_SIZE / origH);
+      targetW = Math.floor(origW * scale);
+      targetH = Math.floor(origH * scale);
+      console.log(`[QRScanner] Downscaling from ${origW}x${origH} to ${targetW}x${targetH}`);
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = targetW;
+    canvas.height = targetH;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return null;
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(image, 0, 0, targetW, targetH);
+
+    const imageData = ctx.getImageData(0, 0, targetW, targetH);
+    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+      inversionAttempts: "attemptBoth",
+    });
+
+    return code?.data ?? null;
+  };
+
+  /**
+   * Process an uploaded file — handles HEIC/HEIF conversion and standard images.
+   * Always uses try/catch/finally to prevent UI from getting stuck.
+   */
+  const processImageFile = async (file: File) => {
+    const fileType = file.type.toLowerCase();
+    const fileName = file.name.toLowerCase();
+    const isHeic = fileType.includes("heic") || fileType.includes("heif") ||
+                   fileName.endsWith(".heic") || fileName.endsWith(".heif");
+
+    console.log(`[QRScanner] Processing file: ${file.name} (${file.type}, size: ${(file.size / 1024).toFixed(0)}KB, HEIC: ${isHeic})`);
+
+    setIsProcessing(true);
+
+    try {
+      // 1. Convert HEIC/HEIF to JPEG if needed
+      let imageBlob: Blob;
+      if (isHeic) {
+        console.log("[QRScanner] Converting HEIC/HEIF to JPEG...");
+        try {
+          const result = await heic2any({
+            blob: file,
+            toType: "image/jpeg",
+            quality: 0.8,
+          });
+          // heic2any returns Blob or Blob[]
+          imageBlob = Array.isArray(result) ? result[0] : result;
+          console.log("[QRScanner] HEIC converted to JPEG successfully");
+        } catch (heicErr) {
+          console.error("[QRScanner] HEIC conversion failed:", heicErr);
+          throw new Error("Failed to convert HEIC image. The image format may not be supported on this device.");
+        }
       } else {
-        console.log(`[QRScanner] Image already within size limit: ${origW}x${origH}`);
+        imageBlob = file;
       }
 
-      // Draw downscaled image onto canvas
-      const canvas = document.createElement("canvas");
-      canvas.width = targetW;
-      canvas.height = targetH;
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
-      if (!ctx) {
-        toast.dismiss();
-        toast.error("Failed to process image. Canvas not supported.");
-        return;
+      // 2. Load the image onto an HTMLImageElement (with timeout)
+      let image: HTMLImageElement;
+      try {
+        image = await loadImageBlob(imageBlob);
+        console.log(`[QRScanner] Image loaded: ${image.width}x${image.height}`);
+      } catch (loadErr) {
+        console.error("[QRScanner] Image load error:", loadErr);
+        throw new Error("Failed to load the image. The file may be corrupted or unsupported.");
       }
 
-      // Use high-quality downscaling
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(image, 0, 0, targetW, targetH);
+      // 3. Decode QR code from the image
+      const decodedText = decodeQrFromImage(image);
 
-      const imageData = ctx.getImageData(0, 0, targetW, targetH);
-      const code = jsQR(imageData.data, imageData.width, imageData.height, {
-        inversionAttempts: "attemptBoth",
-      });
-
-      toast.dismiss();
-
-      if (code && code.data) {
-        console.log("[QRScanner] Image scan detected:", code.data);
-        handleQrResult(code.data);
+      if (decodedText && decodedText.length > 0) {
+        console.log("[QRScanner] QR decoded from image:", decodedText);
+        handleQrResult(decodedText);
       } else {
-        toast.error("No valid QR code found in this image. Please try another photo.");
+        toast.error("Could not detect a QR code in this photo. Please try a clearer or closer shot.");
       }
-    };
-
-    image.onerror = () => {
-      toast.dismiss();
-      toast.error("Failed to load image. Please try a different photo.");
-    };
-
-    image.src = URL.createObjectURL(file);
+    } catch (err: any) {
+      console.error("[QRScanner] Image processing error:", err);
+      toast.error(err.message || "Failed to process the image. Please try again.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleGalleryUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Stop camera stream if active before processing file
+    if (cameraActive) {
+      stopCamera();
+    }
+
     processImageFile(file);
     e.target.value = "";
   };
@@ -318,6 +372,12 @@ export default function QRScanner() {
   const handleCameraUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Stop camera stream if active before processing file
+    if (cameraActive) {
+      stopCamera();
+    }
+
     processImageFile(file);
     e.target.value = "";
   };
@@ -377,7 +437,8 @@ export default function QRScanner() {
                 {!cameraActive ? (
                   <button
                     onClick={startCamera}
-                    className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-[#e85d04] text-white rounded-xl text-base font-semibold hover:bg-[#d4520a] transition-colors shadow-sm"
+                    disabled={isProcessing}
+                    className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-[#e85d04] text-white rounded-xl text-base font-semibold hover:bg-[#d4520a] transition-colors shadow-sm disabled:opacity-50"
                   >
                     <Camera className="w-5 h-5" />
                     Scan with Camera
@@ -417,21 +478,31 @@ export default function QRScanner() {
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={() => galleryInputRef.current?.click()}
-                    className="flex flex-col items-center justify-center gap-1.5 px-4 py-3 bg-[#2563eb] text-white rounded-xl text-sm font-semibold hover:bg-[#1d4ed8] transition-colors shadow-sm"
+                    disabled={isProcessing}
+                    className="flex flex-col items-center justify-center gap-1.5 px-4 py-3 bg-[#2563eb] text-white rounded-xl text-sm font-semibold hover:bg-[#1d4ed8] transition-colors shadow-sm disabled:opacity-50"
                   >
-                    <Image className="w-5 h-5" />
-                    <span>Choose from Library</span>
+                    {isProcessing ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Image className="w-5 h-5" />
+                    )}
+                    <span>{isProcessing ? "Processing..." : "Choose from Library"}</span>
                   </button>
                   <button
                     onClick={() => cameraInputRef.current?.click()}
-                    className="flex flex-col items-center justify-center gap-1.5 px-4 py-3 bg-[#059669] text-white rounded-xl text-sm font-semibold hover:bg-[#047857] transition-colors shadow-sm"
+                    disabled={isProcessing}
+                    className="flex flex-col items-center justify-center gap-1.5 px-4 py-3 bg-[#059669] text-white rounded-xl text-sm font-semibold hover:bg-[#047857] transition-colors shadow-sm disabled:opacity-50"
                   >
-                    <Upload className="w-5 h-5" />
-                    <span>Take Photo of QR</span>
+                    {isProcessing ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Upload className="w-5 h-5" />
+                    )}
+                    <span>{isProcessing ? "Processing..." : "Take Photo of QR"}</span>
                   </button>
                 </div>
                 <p className="text-xs text-gray-400 text-center mt-2">
-                  Select a QR code image from your library or take a new photo
+                  Supports JPG, PNG, HEIC (iOS) and other common formats
                 </p>
               </div>
 
@@ -461,7 +532,7 @@ export default function QRScanner() {
                 <Button
                   onClick={handleLookup}
                   className="w-full bg-[#e85d04] hover:bg-[#e85d04]-dark text-white font-medium py-3"
-                  disabled={!qrCode.trim() || isSearching}
+                  disabled={!qrCode.trim() || isSearching || isProcessing}
                 >
                   {isSearching ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
