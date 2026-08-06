@@ -57,10 +57,9 @@ const PIE_COLORS = [
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-  }).format(amount);
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount) + " Ks";
 }
 
 function downloadCSV(data: string, filename: string) {
@@ -85,9 +84,9 @@ function exportAnalyticsToCSV(analytics: any, yearLabel: string, monthLabel: str
   lines.push("FINANCIAL OVERVIEW");
   lines.push("Metric,Value");
   lines.push(`Total Records,${analytics.financial.totalRecords}`);
-  lines.push(`Total Service Charges,${analytics.financial.totalServiceCharges.toFixed(2)}`);
-  lines.push(`Total Parts Cost,${analytics.financial.totalPartsCost.toFixed(2)}`);
-  lines.push(`Grand Total Revenue,${analytics.financial.grandTotal.toFixed(2)}`);
+  lines.push(`Total Service Charges,${analytics.financial.totalServiceCharges.toLocaleString()} Ks`);
+  lines.push(`Total Parts Cost,${analytics.financial.totalPartsCost.toLocaleString()} Ks`);
+  lines.push(`Grand Total Revenue,${analytics.financial.grandTotal.toLocaleString()} Ks`);
   lines.push("");
 
   // Technician Performance
@@ -95,7 +94,7 @@ function exportAnalyticsToCSV(analytics: any, yearLabel: string, monthLabel: str
   lines.push("Technician,Jobs Completed,Service Charges,Parts Cost,Grand Total");
   analytics.technicians.forEach((t: any) => {
     lines.push(
-      `"${t.name}",${t.jobCount},${t.totalServiceCharges.toFixed(2)},${t.totalPartsCost.toFixed(2)},${t.grandTotal.toFixed(2)}`
+      `"${t.name}",${t.jobCount},${t.totalServiceCharges.toLocaleString()} Ks,${t.totalPartsCost.toLocaleString()} Ks,${t.grandTotal.toLocaleString()} Ks`
     );
   });
   lines.push("");
@@ -113,7 +112,7 @@ function exportAnalyticsToCSV(analytics: any, yearLabel: string, monthLabel: str
   lines.push("Year,Month,Record Count,Total Revenue");
   const monthLabels = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   analytics.monthlyData.forEach((m: any) => {
-    lines.push(`${m.year},${monthLabels[m.month]},${m.recordCount},${m.totalRevenue.toFixed(2)}`);
+    lines.push(`${m.year},${monthLabels[m.month]},${m.recordCount},${m.totalRevenue.toLocaleString()} Ks`);
   });
 
   downloadCSV(lines.join("\n"), `goldwing-analytics-${yearLabel}-${monthLabel.replace(" ", "-")}.csv`);
