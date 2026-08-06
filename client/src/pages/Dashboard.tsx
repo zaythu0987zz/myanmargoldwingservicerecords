@@ -191,14 +191,14 @@ async function exportServiceReportExcel(
 
   // Column definitions
   worksheet.columns = [
-    { header: "No", key: "no", width: 6 },
-    { header: "Customer Name", key: "customer", width: 22 },
-    { header: "Machines Model", key: "model", width: 20 },
-    { header: "Received Day And Date", key: "received", width: 20 },
-    { header: "Completion Date", key: "completion", width: 18 },
-    { header: "Remarks", key: "remarks", width: 30 },
-    { header: "Reports Issue / Fault Description", key: "issues", width: 35 },
-    { header: "Technician", key: "technician", width: 14 },
+    { key: "no", width: 6 },
+    { key: "customer", width: 24 },
+    { key: "model", width: 22 },
+    { key: "received", width: 22 },
+    { key: "completion", width: 18 },
+    { key: "remarks", width: 32 },
+    { key: "issues", width: 38 },
+    { key: "technician", width: 16 },
   ];
 
   // Title row
@@ -210,15 +210,16 @@ async function exportServiceReportExcel(
   worksheet.mergeCells("A1:H1");
   const titleCell = worksheet.getCell("A1");
   titleCell.value = reportTitle;
-  titleCell.font = { bold: true, size: 14 };
+  titleCell.font = { bold: true, size: 14, color: { argb: "FF000000" } };
   titleCell.alignment = { horizontal: "center", vertical: "middle" };
+  titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF5F5F5" } };
   worksheet.getRow(1).height = 30;
 
   // Date row
   worksheet.mergeCells("A2:H2");
   const dateCell = worksheet.getCell("A2");
   dateCell.value = `Date --- ${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}`;
-  dateCell.font = { size: 11 };
+  dateCell.font = { size: 11, color: { argb: "FF333333" } };
   dateCell.alignment = { horizontal: "left", vertical: "middle" };
 
   // Status filter row
@@ -226,15 +227,18 @@ async function exportServiceReportExcel(
     worksheet.mergeCells("A3:H3");
     const statusCell = worksheet.getCell("A3");
     statusCell.value = `Status Filter: ${statusFilter}`;
-    statusCell.font = { italic: true, size: 10 };
+    statusCell.font = { italic: true, size: 10, color: { argb: "FF555555" } };
     statusCell.alignment = { horizontal: "left" };
   }
 
   // Header row (adjust for offset if status filter present)
   const headerRowNum = statusFilter && statusFilter !== "All" ? 4 : 3;
 
-  // Style header row
+  // Set header row values explicitly
   const headerRow = worksheet.getRow(headerRowNum);
+  headerRow.values = ["No", "Customer Name", "Machines Model", "Received Day And Date", "Completion Date", "Remarks", "Reports Issue / Fault Description", "Technician"];
+
+  // Style header row - bold white text on orange background
   headerRow.font = { bold: true, size: 11, color: { argb: "FFFFFFFF" } };
   headerRow.fill = {
     type: "pattern",
@@ -242,15 +246,22 @@ async function exportServiceReportExcel(
     fgColor: { argb: "FFE85D04" },
   };
   headerRow.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
-  headerRow.height = 25;
+  headerRow.height = 30;
 
-  // Border for header row
-  headerRow.eachCell((cell) => {
+  // Border and explicit styling for each header cell
+  headerRow.eachCell((cell, colNumber) => {
     cell.border = {
-      top: { style: "thin" },
-      left: { style: "thin" },
-      bottom: { style: "thin" },
-      right: { style: "thin" },
+      top: { style: "thin", color: { argb: "FF333333" } },
+      left: { style: "thin", color: { argb: "FF333333" } },
+      bottom: { style: "thin", color: { argb: "FF333333" } },
+      right: { style: "thin", color: { argb: "FF333333" } },
+    };
+    cell.font = { bold: true, size: 11, color: { argb: "FFFFFFFF" } };
+    cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+    cell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFE85D04" },
     };
   });
 
@@ -286,14 +297,15 @@ async function exportServiceReportExcel(
     row.getCell("no").alignment = { horizontal: "center", vertical: "middle" };
     row.getCell("technician").alignment = { horizontal: "center", vertical: "middle" };
 
-    // Border for all data rows
+    // Border for all data rows with subtle grey
     row.eachCell((cell) => {
       cell.border = {
-        top: { style: "thin" },
-        left: { style: "thin" },
-        bottom: { style: "thin" },
-        right: { style: "thin" },
+        top: { style: "thin", color: { argb: "FFD0D0D0" } },
+        left: { style: "thin", color: { argb: "FFD0D0D0" } },
+        bottom: { style: "thin", color: { argb: "FFD0D0D0" } },
+        right: { style: "thin", color: { argb: "FFD0D0D0" } },
       };
+      cell.font = cell.font || { size: 10, color: { argb: "FF333333" } };
     });
 
     row.height = 20;
