@@ -74651,15 +74651,29 @@ async function getAnalyticsData(params) {
     brand: serviceRecords.brand,
     count: sql`count(*)`
   }).from(serviceRecords).where(whereClause).groupBy(serviceRecords.brand).orderBy(sql`count(*) desc`);
-  const monthlyData = await db.select({
-    year: sql`year(${serviceRecords.serviceDate})`,
-    month: sql`month(${serviceRecords.serviceDate})`,
-    recordCount: sql`count(*)`,
-    totalRevenue: sql`coalesce(sum(${serviceRecords.serviceCharges}), 0) + coalesce(sum(${serviceRecords.totalCost}), 0)`
-  }).from(serviceRecords).where(whereClause).groupBy(sql`year(${serviceRecords.serviceDate})`, sql`month(${serviceRecords.serviceDate})`).orderBy(sql`year(${serviceRecords.serviceDate})`, sql`month(${serviceRecords.serviceDate})`);
-  const availableYears = await db.select({
-    year: sql`year(${serviceRecords.serviceDate})`
-  }).from(serviceRecords).groupBy(sql`year(${serviceRecords.serviceDate})`).orderBy(sql`year(${serviceRecords.serviceDate}) desc`);
+  const allRecords = await db.select({
+    serviceDate: serviceRecords.serviceDate,
+    serviceCharges: serviceRecords.serviceCharges,
+    totalCost: serviceRecords.totalCost,
+    brand: serviceRecords.brand,
+    repairedBy: serviceRecords.repairedBy
+  }).from(serviceRecords).where(whereClause);
+  const monthMap = {};
+  const yearSet = /* @__PURE__ */ new Set();
+  for (const r of allRecords) {
+    const d = new Date(r.serviceDate);
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    yearSet.add(y);
+    const key = `${y}-${m}`;
+    if (!monthMap[key]) {
+      monthMap[key] = { year: y, month: m, recordCount: 0, totalRevenue: 0 };
+    }
+    monthMap[key].recordCount++;
+    monthMap[key].totalRevenue += Number(r.serviceCharges || 0) + Number(r.totalCost || 0);
+  }
+  const monthlyData = Object.values(monthMap).sort((a, b) => a.year - b.year || a.month - b.month);
+  const availableYears = Array.from(yearSet).sort((a, b) => b - a);
   return {
     financial: {
       totalRecords: Number(financial?.totalRecords || 0),
@@ -74678,13 +74692,8 @@ async function getAnalyticsData(params) {
       brand: b.brand || "Unknown",
       count: Number(b.count)
     })),
-    monthlyData: monthlyData.map((m) => ({
-      year: Number(m.year),
-      month: Number(m.month),
-      recordCount: Number(m.recordCount),
-      totalRevenue: parseFloat(String(m.totalRevenue || 0))
-    })),
-    availableYears: availableYears.map((y) => Number(y.year)).sort((a, b) => b - a)
+    monthlyData,
+    availableYears
   };
 }
 

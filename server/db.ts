@@ -342,27 +342,38 @@ export async function getAnalyticsData(params?: {
     .groupBy(serviceRecords.brand)
     .orderBy(sql`count(*) desc`);
 
-  // 4. Monthly breakdown (for charts)
-  const monthlyData = await db
+  // 4. Fetch all records for client-side grouping (avoid TiDB year()/month() issues)
+  const allRecords = await db
     .select({
-      year: sql<number>`year(${serviceRecords.serviceDate})`,
-      month: sql<number>`month(${serviceRecords.serviceDate})`,
-      recordCount: sql<number>`count(*)`,
-      totalRevenue: sql<number>`coalesce(sum(${serviceRecords.serviceCharges}), 0) + coalesce(sum(${serviceRecords.totalCost}), 0)`,
+      serviceDate: serviceRecords.serviceDate,
+      serviceCharges: serviceRecords.serviceCharges,
+      totalCost: serviceRecords.totalCost,
+      brand: serviceRecords.brand,
+      repairedBy: serviceRecords.repairedBy,
     })
     .from(serviceRecords)
-    .where(whereClause)
-    .groupBy(sql`year(${serviceRecords.serviceDate})`, sql`month(${serviceRecords.serviceDate})`)
-    .orderBy(sql`year(${serviceRecords.serviceDate})`, sql`month(${serviceRecords.serviceDate})`);
+    .where(whereClause);
 
-  // 5. Available years for filter
-  const availableYears = await db
-    .select({
-      year: sql<number>`year(${serviceRecords.serviceDate})`,
-    })
-    .from(serviceRecords)
-    .groupBy(sql`year(${serviceRecords.serviceDate})`)
-    .orderBy(sql`year(${serviceRecords.serviceDate}) desc`);
+  // Group by month in JavaScript
+  const monthMap: Record<string, { year: number; month: number; recordCount: number; totalRevenue: number }> = {};
+  const yearSet = new Set<number>();
+
+  for (const r of allRecords) {
+    const d = new Date(r.serviceDate!);
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1; // 1-12
+    yearSet.add(y);
+    const key = `${y}-${m}`;
+    if (!monthMap[key]) {
+      monthMap[key] = { year: y, month: m, recordCount: 0, totalRevenue: 0 };
+    }
+    monthMap[key].recordCount++;
+    monthMap[key].totalRevenue +=
+      Number(r.serviceCharges || 0) + Number(r.totalCost || 0);
+  }
+
+  const monthlyData = Object.values(monthMap).sort((a, b) => a.year - b.year || a.month - b.month);
+  const availableYears = Array.from(yearSet).sort((a, b) => b - a);
 
   return {
     financial: {
@@ -382,12 +393,7 @@ export async function getAnalyticsData(params?: {
       brand: b.brand || "Unknown",
       count: Number(b.count),
     })),
-    monthlyData: monthlyData.map((m) => ({
-      year: Number(m.year),
-      month: Number(m.month),
-      recordCount: Number(m.recordCount),
-      totalRevenue: parseFloat(String(m.totalRevenue || 0)),
-    })),
-    availableYears: availableYears.map((y) => Number(y.year)).sort((a, b) => b - a),
+    monthlyData,
+    availableYears,
   };
 }
