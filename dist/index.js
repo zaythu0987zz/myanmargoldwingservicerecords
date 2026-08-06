@@ -276,6 +276,77 @@ async function getAllBrands() {
   const result = await db.selectDistinct({ brand: serviceRecords.brand }).from(serviceRecords);
   return result.map((r) => r.brand);
 }
+async function getAnalyticsData(params) {
+  const db = await getDb();
+  if (!db) return null;
+  const conditions = [];
+  if (params?.year) {
+    if (params.month && params.month > 0) {
+      const startDate = new Date(params.year, params.month - 1, 1);
+      const endDate = new Date(params.year, params.month, 0, 23, 59, 59);
+      conditions.push(gte(serviceRecords.serviceDate, startDate));
+      conditions.push(lte(serviceRecords.serviceDate, endDate));
+    } else {
+      const startDate = new Date(params.year, 0, 1);
+      const endDate = new Date(params.year, 11, 31, 23, 59, 59);
+      conditions.push(gte(serviceRecords.serviceDate, startDate));
+      conditions.push(lte(serviceRecords.serviceDate, endDate));
+    }
+  }
+  const whereClause = conditions.length > 0 ? and(...conditions) : void 0;
+  const [financial] = await db.select({
+    totalRecords: sql`count(*)`,
+    totalServiceCharges: sql`coalesce(sum(${serviceRecords.serviceCharges}), 0)`,
+    totalPartsCost: sql`coalesce(sum(${serviceRecords.totalCost}), 0)`,
+    grandTotal: sql`coalesce(sum(${serviceRecords.serviceCharges}), 0) + coalesce(sum(${serviceRecords.totalCost}), 0)`
+  }).from(serviceRecords).where(whereClause);
+  const technicianData = await db.select({
+    technicianName: serviceRecords.repairedBy,
+    jobCount: sql`count(*)`,
+    totalServiceCharges: sql`coalesce(sum(${serviceRecords.serviceCharges}), 0)`,
+    totalPartsCost: sql`coalesce(sum(${serviceRecords.totalCost}), 0)`,
+    grandTotal: sql`coalesce(sum(${serviceRecords.serviceCharges}), 0) + coalesce(sum(${serviceRecords.totalCost}), 0)`
+  }).from(serviceRecords).where(whereClause).groupBy(serviceRecords.repairedBy).orderBy(sql`grandTotal desc`);
+  const brandData = await db.select({
+    brand: serviceRecords.brand,
+    count: sql`count(*)`
+  }).from(serviceRecords).where(whereClause).groupBy(serviceRecords.brand).orderBy(sql`count desc`);
+  const monthlyData = await db.select({
+    year: sql`year(${serviceRecords.serviceDate})`,
+    month: sql`month(${serviceRecords.serviceDate})`,
+    recordCount: sql`count(*)`,
+    totalRevenue: sql`coalesce(sum(${serviceRecords.serviceCharges}), 0) + coalesce(sum(${serviceRecords.totalCost}), 0)`
+  }).from(serviceRecords).where(whereClause).groupBy(sql`year(${serviceRecords.serviceDate})`, sql`month(${serviceRecords.serviceDate})`).orderBy(sql`year`, sql`month`);
+  const availableYears = await db.select({
+    year: sql`year(${serviceRecords.serviceDate})`
+  }).from(serviceRecords).groupBy(sql`year(${serviceRecords.serviceDate})`).orderBy(sql`year desc`);
+  return {
+    financial: {
+      totalRecords: Number(financial?.totalRecords || 0),
+      totalServiceCharges: parseFloat(String(financial?.totalServiceCharges || 0)),
+      totalPartsCost: parseFloat(String(financial?.totalPartsCost || 0)),
+      grandTotal: parseFloat(String(financial?.grandTotal || 0))
+    },
+    technicians: technicianData.map((t2) => ({
+      name: t2.technicianName || "Unassigned",
+      jobCount: Number(t2.jobCount),
+      totalServiceCharges: parseFloat(String(t2.totalServiceCharges || 0)),
+      totalPartsCost: parseFloat(String(t2.totalPartsCost || 0)),
+      grandTotal: parseFloat(String(t2.grandTotal || 0))
+    })),
+    brands: brandData.map((b) => ({
+      brand: b.brand || "Unknown",
+      count: Number(b.count)
+    })),
+    monthlyData: monthlyData.map((m) => ({
+      year: Number(m.year),
+      month: Number(m.month),
+      recordCount: Number(m.recordCount),
+      totalRevenue: parseFloat(String(m.totalRevenue || 0))
+    })),
+    availableYears: availableYears.map((y) => Number(y.year)).sort((a, b) => b - a)
+  };
+}
 
 // server/routers.ts
 import { nanoid } from "nanoid";
@@ -494,6 +565,15 @@ var appRouter = router({
     // Public: Get all available brands
     brands: publicProcedure.query(async () => {
       return getAllBrands();
+    }),
+    // Public: Get analytics data with year/month filtering
+    analytics: publicProcedure.input(
+      z.object({
+        year: z.number().optional(),
+        month: z.number().optional()
+      }).optional()
+    ).query(async ({ input }) => {
+      return getAnalyticsData(input);
     })
   })
 });

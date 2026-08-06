@@ -14,6 +14,7 @@ import {
   getServiceRecordByQrCode,
   updateServiceRecord,
   getDb,
+  getAnalyticsData,
 } from "./db";
 import { nanoid } from "nanoid";
 
@@ -274,6 +275,18 @@ export const appRouter = router({
     brands: publicProcedure.query(async () => {
       return getAllBrands();
     }),
+
+    // Public: Get analytics data with year/month filtering
+    analytics: publicProcedure
+      .input(
+        z.object({
+          year: z.number().optional(),
+          month: z.number().optional(),
+        }).optional()
+      )
+      .query(async ({ input }) => {
+        return getAnalyticsData(input);
+      }),
   }),
 });
 
