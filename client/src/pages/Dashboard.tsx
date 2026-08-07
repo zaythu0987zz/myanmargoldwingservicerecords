@@ -180,6 +180,285 @@ function getRemarks(status: string): string {
   }
 }
 
+// Format number with commas
+function formatNum(n: number): string {
+  return new Intl.NumberFormat("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
+}
+
+// Export Financial Excel Report with full line items
+async function exportFinancialExcel(
+  records: any[],
+  dateFrom: string,
+  dateTo: string,
+  selectedMonthIdx?: number,
+  selectedYear?: number
+) {
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet("Financial Report");
+
+  // Column widths
+  const colWidths = [
+    { key: "date", width: 14 },
+    { key: "customer", width: 28 },
+    { key: "item", width: 35 },
+    { key: "qty", width: 8 },
+    { key: "mmk", width: 14 },
+    { key: "saleAmount", width: 14 },
+    { key: "subTotal", width: 14 },
+    { key: "paidAmount", width: 14 },
+    { key: "balance", width: 14 },
+    { key: "remark", width: 18 },
+  ];
+
+  worksheet.columns = colWidths;
+
+  const startDate = dateFrom ? new Date(dateFrom) : null;
+  const endDate = dateTo ? new Date(dateTo) : null;
+
+  // Row 1: Company Name (Bold, Blue, Underlined)
+  worksheet.mergeCells("A1:J1");
+  const companyCell = worksheet.getCell("A1");
+  companyCell.value = "Myanmar Gold Wing Limited";
+  companyCell.font = { bold: true, size: 14, color: { argb: "FF0000FF" }, underline: true };
+  companyCell.alignment = { horizontal: "left", vertical: "middle" };
+  worksheet.getRow(1).height = 25;
+
+  // Row 2: Report Title (e.g., "Total Office Service For July 2026 ( 1.7.26-31.7.26 )")
+  const monthName = selectedMonthIdx ? MONTH_NAMES[selectedMonthIdx] : (startDate ? SHORT_MONTHS[startDate.getMonth() + 1] : "");
+  const year = selectedYear || (startDate ? startDate.getFullYear() : new Date().getFullYear());
+  let dateRangeStr = "";
+  const fmtDate = (d: Date | null): string => {
+    if (!d) return "";
+    const day = d.getDate();
+    const month = d.getMonth() + 1;
+    const year = String(d.getFullYear()).slice(-2);
+    return `${day}.${month}.${year}`;
+  };
+  if (startDate && endDate) {
+    dateRangeStr = `( ${fmtDate(startDate)}-${fmtDate(endDate)} )`;
+  } else if (startDate) {
+    dateRangeStr = `( ${fmtDate(startDate)} )`;
+  }
+
+  worksheet.mergeCells("A2:J2");
+  const titleCell2 = worksheet.getCell("A2");
+  titleCell2.value = `Total Office Service For ${monthName || ""} ${year} ${dateRangeStr}`;
+  titleCell2.font = { bold: true, size: 12, color: { argb: "FF000000" } };
+  titleCell2.alignment = { horizontal: "left", vertical: "middle" };
+  worksheet.getRow(2).height = 22;
+
+  // Row 3: Empty spacer
+  worksheet.getRow(3).height = 8;
+
+  // Row 4: Main headers
+  const headerRow4 = worksheet.getRow(4);
+  headerRow4.values = ["Date", "Customer Name", "Item", "Qty", "Price", "", "Sub Total", "Paid Amount", "Balance", "Remark"];
+  headerRow4.font = { bold: true, size: 11 };
+  headerRow4.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9E1F2" } };
+  headerRow4.alignment = { horizontal: "center", vertical: "middle" };
+  headerRow4.height = 25;
+
+  // Row 5: Sub-headers (Price split into MMK and Sale Amount)
+  const headerRow5 = worksheet.getRow(5);
+  headerRow5.values = ["", "", "", "", "MMK", "Sale Amount", "", "", "", ""];
+  headerRow5.font = { bold: true, size: 10 };
+  headerRow5.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9E1F2" } };
+  headerRow5.alignment = { horizontal: "center", vertical: "middle" };
+  headerRow5.height = 20;
+
+  // Merge Price header (Row 4, col 5-6)
+  worksheet.mergeCells(4, 5, 4, 6);
+  // Merge Sub Total, Paid Amount, Balance headers vertically (rows 4-5)
+  worksheet.mergeCells(4, 7, 5, 7);
+  worksheet.mergeCells(4, 8, 5, 8);
+  worksheet.mergeCells(4, 9, 5, 9);
+  // Merge Date, Customer, Item, Remark vertically (rows 4-5)
+  worksheet.mergeCells(4, 1, 5, 1);
+  worksheet.mergeCells(4, 2, 5, 2);
+  worksheet.mergeCells(4, 3, 5, 3);
+  worksheet.mergeCells(4, 10, 5, 10);
+
+  // Apply borders to all header cells
+  for (let rowIdx = 4; rowIdx <= 5; rowIdx++) {
+    const row = worksheet.getRow(rowIdx);
+    row.eachCell((cell) => {
+      cell.border = {
+        top: { style: "thin", color: { argb: "FF333333" } },
+        left: { style: "thin", color: { argb: "FF333333" } },
+        bottom: { style: "thin", color: { argb: "FF333333" } },
+        right: { style: "thin", color: { argb: "FF333333" } },
+      };
+    });
+  }
+
+  // Data starts at row 6
+  let currentRow = 6;
+  let totalQty = 0;
+  let totalMMK = 0;
+  let totalSaleAmount = 0;
+  let totalSubTotal = 0;
+  let totalPaid = 0;
+  let totalBalance = 0;
+
+  const borderStyle = {
+    top: { style: "thin" as const, color: { argb: "FF999999" } },
+    left: { style: "thin" as const, color: { argb: "FF999999" } },
+    bottom: { style: "thin" as const, color: { argb: "FF999999" } },
+    right: { style: "thin" as const, color: { argb: "FF999999" } },
+  } as any;
+
+  records.forEach((record) => {
+    const recordServiceDate = record.serviceDate || record.inDate;
+    const dateStr = recordServiceDate ? formatDateShortNoDay(recordServiceDate) : "";
+    const customerName = record.customerName || "";
+    const brandModel = `${record.brand} - ${record.modelName}`;
+    const serviceCharge = parseFloat(record.serviceCharges) || 0;
+    const parts = record.parts || [];
+
+    // Calculate parts totals
+    let recordPartsTotal = 0;
+    parts.forEach((p: any) => {
+      recordPartsTotal += parseFloat(p.totalCost) || 0;
+    });
+
+    const grandTotal = serviceCharge + recordPartsTotal;
+    // Paid amount = serviceCharges (what was charged), balance = parts cost unpaid
+    const paidAmount = serviceCharge;
+    const balance = recordPartsTotal;
+
+    // Line 1: Service Machine charge
+    const line1Row = worksheet.getRow(currentRow);
+    line1Row.values = {
+      date: dateStr,
+      customer: customerName,
+      item: `${brandModel} (Service Machine)`,
+      qty: 1,
+      mmk: serviceCharge,
+      saleAmount: serviceCharge,
+      subTotal: serviceCharge,
+      paidAmount: paidAmount,
+      balance: 0,
+      remark: "Service",
+    };
+
+    line1Row.eachCell((cell) => {
+      cell.border = borderStyle;
+      cell.font = { size: 10 };
+      const colIdx = Number(cell.col) || 0;
+      if (colIdx === 8) { // Paid Amount column - yellow
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF2CC" } } as any;
+      }
+      // Number formatting
+      if ([5, 6, 7, 8, 9].includes(colIdx)) {
+        cell.numFmt = "#,##0";
+      }
+    });
+    line1Row.alignment = { vertical: "middle", wrapText: true };
+
+    currentRow++;
+    totalQty += 1;
+    totalMMK += serviceCharge;
+    totalSaleAmount += serviceCharge;
+    totalSubTotal += serviceCharge;
+    totalPaid += paidAmount;
+
+    // Lines 2..N: Spare parts
+    parts.forEach((part: any) => {
+      const partTotal = parseFloat(part.totalCost) || 0;
+      const partQty = part.quantity || 1;
+      const partUnitPrice = parseFloat(part.unitPrice) || 0;
+
+      const partRow = worksheet.getRow(currentRow);
+      partRow.values = {
+        date: "",
+        customer: "",
+        item: part.partName || "",
+        qty: partQty,
+        mmk: partUnitPrice,
+        saleAmount: partTotal,
+        subTotal: partTotal,
+        paidAmount: 0,
+        balance: partTotal,
+        remark: "Parts",
+      };
+
+      partRow.eachCell((cell) => {
+        cell.border = borderStyle;
+        cell.font = { size: 10 };
+      const colIdx2 = Number(cell.col) || 0;
+      if (colIdx2 === 8) { // Paid Amount column - yellow
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF2CC" } } as any;
+      }
+      if ([5, 6, 7, 8, 9].includes(colIdx2)) {
+        cell.numFmt = "#,##0";
+      }
+      });
+      partRow.alignment = { vertical: "middle", wrapText: true };
+
+      currentRow++;
+      totalQty += partQty;
+      totalMMK += partUnitPrice;
+      totalSaleAmount += partTotal;
+      totalSubTotal += partTotal;
+      totalBalance += partTotal;
+      totalPaid += 0;
+    });
+  });
+
+  // Blank row before total
+  currentRow++;
+
+  // Total row
+  const totalRow = worksheet.getRow(currentRow);
+  worksheet.mergeCells(currentRow, 1, currentRow, 6);
+  const totalLabel = `Total Office Service For ${monthName || ""} ${year} ${dateRangeStr}`;
+  totalRow.getCell(1).value = totalLabel;
+  totalRow.getCell(1).font = { bold: true, size: 11, color: { argb: "FF0000FF" } };
+  totalRow.getCell(1).alignment = { horizontal: "left", vertical: "middle" };
+
+  totalRow.getCell(4).value = totalQty;
+  totalRow.getCell(5).value = totalMMK;
+  totalRow.getCell(6).value = totalSaleAmount;
+  totalRow.getCell(7).value = totalSubTotal;
+  totalRow.getCell(8).value = totalPaid;
+  totalRow.getCell(9).value = totalBalance;
+
+  // Style total row cells
+  for (let col = 1; col <= 10; col++) {
+    const cell = totalRow.getCell(col);
+    cell.border = {
+      top: { style: "medium", color: { argb: "FF000000" } },
+      left: { style: "thin", color: { argb: "FF333333" } },
+      bottom: { style: "thin", color: { argb: "FF333333" } },
+      right: { style: "thin", color: { argb: "FF333333" } },
+    };
+    if ([5, 6, 7, 8, 9].includes(col)) {
+      cell.numFmt = "#,##0";
+      cell.font = { bold: true, size: 11, color: { argb: "FF000000" } };
+    }
+    if (col === 8) {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF2CC" } };
+    }
+  }
+
+  totalRow.height = 22;
+
+  // Freeze panes
+  worksheet.views = [{ state: "frozen", ySplit: 5 }];
+
+  // Generate and download
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  const fileName = `goldwing-financial-${monthName || "report"}-${year}.xlsx`;
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
 async function exportServiceReportExcel(
   records: any[],
   dateFrom: string,
@@ -356,6 +635,38 @@ export default function Dashboard() {
   const [reportStatus, setReportStatus] = useState<string>("All");
   const [isExporting, setIsExporting] = useState(false);
 
+  // Financial report state
+  const { data: financialRecords, isLoading: isFinancialLoading } = trpc.serviceRecords.financialReport.useQuery(
+    {
+      dateFrom: reportDateFrom || undefined,
+      dateTo: reportDateTo || undefined,
+    },
+    {
+      enabled: isAuthenticated,
+    }
+  );
+
+  const [isExportingFinancial, setIsExportingFinancial] = useState(false);
+
+  const handleExportFinancialExcel = useCallback(async () => {
+    if (!financialRecords || financialRecords.length === 0) return;
+    setIsExportingFinancial(true);
+    try {
+      await exportFinancialExcel(
+        financialRecords,
+        reportDateFrom || "",
+        reportDateTo || "",
+        selectedMonth,
+        selectedYear
+      );
+    } catch (err) {
+      console.error("Financial Excel export failed:", err);
+      alert("Failed to generate Financial Excel report. Please try again.");
+    } finally {
+      setIsExportingFinancial(false);
+    }
+  }, [financialRecords, reportDateFrom, reportDateTo, selectedMonth, selectedYear]);
+
   const { data: analytics, isLoading } = trpc.serviceRecords.analytics.useQuery(
     { year: selectedYear, month: selectedMonth }
   );
@@ -515,10 +826,10 @@ export default function Dashboard() {
 
           {/* Excel Report Filter Section */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">
-            <div className="flex flex-wrap items-center gap-4">
+            <div className="flex flex-wrap items-center gap-4 mb-4">
               <div className="flex items-center gap-2">
                 <Filter className="w-4 h-4 text-[#e85d04]" />
-                <span className="text-sm font-semibold text-gray-800">Service Report Filters:</span>
+                <span className="text-sm font-semibold text-gray-800">Report Filters:</span>
               </div>
               <div className="flex items-center gap-2">
                 <label className="text-sm text-gray-600">From:</label>
@@ -551,24 +862,37 @@ export default function Dashboard() {
                   <option value="Completed Service">Completed Service</option>
                 </select>
               </div>
-              <div className="ml-auto">
-                <button
-                  onClick={handleExportExcel}
-                  disabled={!reportRecords || reportRecords.length === 0 || isExporting}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-[#e85d04] text-white rounded-lg text-sm font-medium hover:bg-[#d4520a] transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {isExporting ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <FileSpreadsheet className="w-4 h-4" />
-                  )}
-                  {isExporting ? "Generating..." : "Export Service Report (Excel)"}
-                </button>
-              </div>
             </div>
-            {reportRecords && (
+            {/* Export Buttons */}
+            <div className="flex flex-wrap gap-3 pt-3 border-t border-gray-100">
+              <button
+                onClick={handleExportExcel}
+                disabled={!reportRecords || reportRecords.length === 0 || isExporting}
+                className="flex items-center gap-2 px-5 py-2.5 bg-[#e85d04] text-white rounded-lg text-sm font-medium hover:bg-[#d4520a] transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {isExporting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <FileSpreadsheet className="w-4 h-4" />
+                )}
+                {isExporting ? "Generating..." : "Export Service Report (Excel)"}
+              </button>
+              <button
+                onClick={handleExportFinancialExcel}
+                disabled={!financialRecords || financialRecords.length === 0 || isExportingFinancial}
+                className="flex items-center gap-2 px-5 py-2.5 bg-[#2563eb] text-white rounded-lg text-sm font-medium hover:bg-[#1d4ed8] transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {isExportingFinancial ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <FileText className="w-4 h-4" />
+                )}
+                {isExportingFinancial ? "Generating..." : "Export Financial Report (Excel)"}
+              </button>
+            </div>
+            {(reportRecords || financialRecords) && (
               <div className="mt-3 text-xs text-gray-500">
-                {reportRecords.length} record(s) matched the current filters.
+                {reportRecords?.length || 0} record(s) matched the current filters.
               </div>
             )}
           </div>

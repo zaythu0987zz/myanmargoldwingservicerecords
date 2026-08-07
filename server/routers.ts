@@ -17,6 +17,7 @@ import {
   getAnalyticsData,
   getAllRecordsForReport,
   deriveStatus,
+  getFinancialReportData,
 } from "./db";
 import { nanoid } from "nanoid";
 
@@ -307,6 +308,18 @@ export const appRouter = router({
           status: deriveStatus(r),
         }));
         return enrichedRecords;
+      }),
+
+    // Protected: Get records with parts for Financial Excel Report
+    financialReport: protectedProcedure
+      .input(
+        z.object({
+          dateFrom: z.string().optional(),
+          dateTo: z.string().optional(),
+        }).optional()
+      )
+      .query(async ({ input }) => {
+        return getFinancialReportData(input);
       }),
   }),
 });

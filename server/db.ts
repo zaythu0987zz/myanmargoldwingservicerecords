@@ -1,4 +1,4 @@
-import { eq, desc, and, gte, lte, like, sql } from "drizzle-orm";
+import { eq, desc, asc, and, gte, lte, like, sql, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertServiceRecord,
@@ -317,6 +317,59 @@ export async function getAllRecordsForReport(params?: {
   }
 
   return filtered;
+}
+
+// Get all records with parts for Financial Excel Report
+export async function getFinancialReportData(params?: {
+  dateFrom?: string;
+  dateTo?: string;
+}) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const conditions = [];
+
+  if (params?.dateFrom) {
+    conditions.push(gte(serviceRecords.serviceDate, new Date(params.dateFrom)));
+  }
+
+  if (params?.dateTo) {
+    conditions.push(lte(serviceRecords.serviceDate, new Date(params.dateTo)));
+  }
+
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const records = await db
+    .select()
+    .from(serviceRecords)
+    .where(whereClause)
+    .orderBy(asc(serviceRecords.serviceDate))
+    .limit(1000);
+
+  // Fetch all parts for these records
+  const recordIds = records.map((r) => r.id);
+  let parts: any[] = [];
+  if (recordIds.length > 0) {
+    parts = await db
+      .select()
+      .from(serviceParts)
+      .where(inArray(serviceParts.recordId, recordIds));
+  }
+
+  // Map parts to records
+  const partsByRecord = new Map<number, any[]>();
+  parts.forEach((p) => {
+    if (!partsByRecord.has(p.recordId)) {
+      partsByRecord.set(p.recordId, []);
+    }
+    partsByRecord.get(p.recordId)!.push(p);
+  });
+
+  // Return records with parts attached
+  return records.map((r) => ({
+    ...r,
+    parts: partsByRecord.get(r.id) || [],
+  }));
 }
 
 // Derive status from record fields
